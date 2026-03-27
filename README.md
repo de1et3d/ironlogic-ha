@@ -93,7 +93,7 @@ This integration has been tested with:
 3. **If manual configuration is selected:**
    - Enter:
      - **Host** — IP address of your controller (e.g., `192.168.1.100`)
-     - **Username** — depends on model: Z-5R (Wi-Fi): `z5rwifi`, Z-5R Web: `z5rweb`, Z-5R Web Mini: `z5rwebmini`
+     - **Username** — depends on model: Z-5R (Wi-Fi): `z5rwifi`, Z-5R Web: `z5rweb`, Matrix-II (Wi-Fi): `matrix`
      - **Auth Key** — 8‑character key from the controller. If you changed it from the factory default, find it in the controller's web interface under "Work Mode" settings.
 
 4. **Configure webhook**
