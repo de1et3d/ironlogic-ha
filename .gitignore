@@ -1,0 +1,13 @@
+auxillary/
+
+# Python
+__pycache__/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db

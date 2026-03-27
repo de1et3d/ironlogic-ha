@@ -1,0 +1,192 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "IronLogic Z-5R Controller Setup",
+        "description": "Choose setup method:",
+        "data": {
+          "setup_method": "Setup method"
+        }
+      },
+      "manual": {
+        "title": "Manual configuration",
+        "description": "Enter the IP address, username and authentication key for your IronLogic Z-5R controller.\n\n- For Z-5R (Wi-Fi) username is usually `z5rwifi`\n- For Z-5R Web username is `z5rweb`\n- For Matrix-II (Wi-Fi) username is `matrix`",
+        "data": {
+          "host": "IP address",
+          "username": "Username",
+          "auth_key": "Authentication key (from controller label)"
+        }
+      },
+      "scan": {
+        "title": "Scanning for controllers",
+        "description": "Click 'Submit' to search for controllers on the local network.\n\nThis may take up to 30 seconds.\n\nScanning addresses in /24 subnet (up to 254 addresses).",
+        "data": {}
+      },
+      "scan_failed": {
+        "title": "No controllers found",
+        "description": "No IronLogic controllers were found on the local network.\n\nMake sure the controller is connected to the same network as Home Assistant and try again, or configure manually.",
+        "data": {
+          "retry": "Try again"
+        }
+      },
+      "select_host": {
+        "title": "Select controller",
+        "description": "Enter the username and authentication key for the selected controller.\n\n- For Z-5R (Wi-Fi) username: `z5rwifi`\n- For Z-5R Web: `z5rweb`\n- For Matrix-II (Wi-Fi): `matrix`\n\nAuthentication key is an 8-character code from the controller label.",
+        "data": {
+          "host": "IP address",
+          "username": "Username",
+          "auth_key": "Authentication key (from controller label)"
+        },
+        "data_description": {
+          "host": "Controller IP address",
+          "username": "z5rwifi / z5rweb / matrix",
+          "auth_key": "8-character key from controller label"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to controller",
+      "invalid_auth": "Invalid username or authentication key",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "no_devices_found": "No IronLogic controllers found on the network",
+      "cannot_connect": "Cannot connect to selected controller",
+      "invalid_auth": "Invalid username or authentication key"
+    }
+  },
+  "options": {
+    "abort": {
+      "no_options": "No configuration options available. Use device controls."
+    }
+  },
+  "entity": {
+    "lock": {
+      "door_lock": {
+        "name": "Door lock"
+      }
+    },
+    "binary_sensor": {
+      "door": {
+        "name": "Door"
+      },
+      "controller_availability": {
+        "name": "Controller Availability"
+      }
+    },
+    "sensor": {
+      "last_event": {
+        "name": "Last event",
+        "state": {
+          "waiting": "Waiting for events...",
+          "opened_by_button": "Opened by internal button",
+          "opened_by_button_exit": "Opened by internal button (exit)",
+          "key_not_found": "Key not found",
+          "key_not_found_exit": "Key not found (exit)",
+          "key_granted": "Key access granted",
+          "key_granted_exit": "Key access granted (exit)",
+          "key_denied": "Key access denied",
+          "key_denied_exit": "Key access denied (exit)",
+          "opened_by_network": "Opened by network",
+          "opened_by_network_exit": "Opened by network (exit)",
+          "door_tampered": "Door tampered (opened)",
+          "door_tampered_exit": "Door tampered (exit)",
+          "door_left_open": "Door left open (timeout)",
+          "door_left_open_exit": "Door left open (exit)",
+          "passage_completed": "Passage completed",
+          "passage_completed_exit": "Passage completed (exit)",
+          "door_opened": "Door opened",
+          "door_opened_exit": "Door opened (exit)",
+          "door_closed": "Door closed",
+          "door_closed_exit": "Door closed (exit)",
+          "door_locked_denied": "Door locked - key denied",
+          "door_locked_denied_exit": "Door locked - key denied (exit)",
+          "passage_not_completed": "Passage not completed",
+          "passage_not_completed_exit": "Passage not completed (exit)"
+        }
+      },
+      "last_key": {
+        "name": "Last key",
+        "state": {
+          "waiting": "Waiting for data...",
+          "no_keys": "No keys yet",
+          "unknown": "Unknown key",
+          "network": "Network",
+          "granted": "granted",
+          "denied": "denied",
+          "not_found": "not found"
+        }
+      },
+      "serial_number": {
+        "name": "Serial number",
+        "state": {
+          "waiting": "Waiting for data..."
+        }
+      },
+      "webhook_url": {
+        "name": "Webhook URL",
+        "state": {
+          "click_to_copy": "Click to copy"
+        }
+      }
+    },
+    "switch": {
+      "door_sensor": {
+        "name": "Door sensor"
+      }
+    },
+    "number": {
+      "poll_interval": {
+        "name": "Poll interval"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Reboot controller"
+      },
+      "set_webhook": {
+        "name": "Set webhook URL"
+      }
+    }
+  },
+  "services": {
+    "add_key": {
+      "name": "Add key",
+      "description": "Add a new key to the controller.",
+      "fields": {
+        "key_number": {
+          "name": "Key number",
+          "description": "Key number in hex format (e.g., 00B5009EC1A8)"
+        },
+        "name": {
+          "name": "Key name",
+          "description": "Friendly name for the key"
+        },
+        "key_type": {
+          "name": "Key type",
+          "description": "Type of key (normal, blocking, master)",
+          "options": {
+            "normal": "Normal",
+            "blocking": "Blocking",
+            "master": "Master"
+          }
+        }
+      }
+    },
+    "remove_key": {
+      "name": "Remove key",
+      "description": "Remove a key from the controller.",
+      "fields": {
+        "key_number": {
+          "name": "Key number",
+          "description": "Key number to remove"
+        }
+      }
+    },
+    "clear_all_keys": {
+      "name": "Clear all keys",
+      "description": "Remove all keys from the controller."
+    }
+  }
+}

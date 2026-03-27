@@ -1,0 +1,15 @@
+{
+  "domain": "ironlogic",
+  "name": "IronLogic Z-5R Controller",
+  "codeowners": ["@de1et3d"],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/de1et3d/ironlogic-ha",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/de1et3d/ironlogic-ha/issues",
+  "requirements": [],
+  "version": "1.0.0",
+  "loggers": ["custom_components.ironlogic"],
+  "platforms": ["lock", "sensor", "binary_sensor", "switch", "number", "button"]
+}

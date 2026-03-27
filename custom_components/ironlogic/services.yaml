@@ -1,0 +1,54 @@
+add_key:
+  name: Add key
+  description: Add a new key to the controller.
+  target:
+    entity:
+      integration: ironlogic
+      domain: lock
+  fields:
+    key_number:
+      name: Key number
+      description: Key number in hex format (e.g., 00B5009EC1A8)
+      required: true
+      example: "00B5009EC1A8"
+      selector:
+        text:
+    name:
+      name: Key name
+      description: Friendly name for the key
+      required: false
+      selector:
+        text:
+    key_type:
+      name: Key type
+      description: Type of key (normal, blocking)
+      required: false
+      default: "normal"
+      selector:
+        select:
+          options:
+            - "normal"
+            - "blocking"
+
+remove_key:
+  name: Remove key
+  description: Remove a key from the controller.
+  target:
+    entity:
+      integration: ironlogic
+      domain: lock
+  fields:
+    key_number:
+      name: Key number
+      description: Key number to remove
+      required: true
+      selector:
+        text:
+
+clear_all_keys:
+  name: Clear all keys
+  description: Remove all keys from the controller.
+  target:
+    entity:
+      integration: ironlogic
+      domain: lock
