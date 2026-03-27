@@ -6,7 +6,7 @@
 
 > 🇷🇺 [Документация на русском](./README_ru.md)
 
-> ⚠️ **DISCLAIMER:** This is an **unofficial community integration**. The author is **not affiliated with IronLogic LLC** in any way. IronLogic and its logo are trademarks of IronLogic LLC. This project does not intend to infringe on any rights, and the author would be happy to see an official integration released by the company. This integration was written using AI tools. Use at your own risk.
+> ⚠️ **DISCLAIMER:** This is an **unofficial community integration**. The author is **not affiliated with IronLogic** in any way. IronLogic and its logo are trademarks of IronLogic. This project does not intend to infringe on any rights, and the author would be happy to see an official integration released by the company. This integration was written using AI tools. Use at your own risk.
 
 ## 📌 Features
 
