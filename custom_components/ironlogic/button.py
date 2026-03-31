@@ -1,4 +1,4 @@
-"""Button platform for IronLogic Z-5R."""
+"""Button platform for IronLogic."""
 
 import logging
 

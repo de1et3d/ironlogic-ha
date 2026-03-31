@@ -1,4 +1,4 @@
-"""Lock platform for IronLogic Z-5R."""
+"""Lock platform for IronLogic."""
 
 import asyncio
 import logging

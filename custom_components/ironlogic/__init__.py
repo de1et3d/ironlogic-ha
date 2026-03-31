@@ -1,4 +1,4 @@
-"""Init for IronLogic Z-5R Controller integration."""
+"""Init for IronLogic IP Controller integration."""
 
 import logging
 import json
@@ -39,7 +39,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up IronLogic Z-5R from a config entry."""
+    """Set up IronLogic from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
     host = entry.data[CONF_HOST]
@@ -98,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Create device name (initially with IP only, will be updated when SN received)
-    device_name = f"IronLogic Z-5R ({host})"
+    device_name = f"IronLogic ({host})"
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -234,7 +234,7 @@ class IronLogicWebhookView(HomeAssistantView):
             device = device_registry.async_get_device(
                 identifiers={(DOMAIN, self.entry_data["host"])}
             )
-            expected_name = f"IronLogic Z-5R ({sn} @ {self.entry_data['host']})"
+            expected_name = f"IronLogic ({sn} @ {self.entry_data['host']})"
             if device and device.name != expected_name:
                 _LOGGER.debug(
                     "Device name needs update: current='%s', expected='%s'",
@@ -254,7 +254,7 @@ class IronLogicWebhookView(HomeAssistantView):
                 _LOGGER.debug("Entry data updated with SN")
 
             # Format new name with SN and IP
-            new_name = f"IronLogic Z-5R ({sn} @ {self.entry_data['host']})"
+            new_name = f"IronLogic ({sn} @ {self.entry_data['host']})"
             _LOGGER.debug("New name will be: %s", new_name)
 
             # Update device name in registry

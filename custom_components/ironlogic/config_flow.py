@@ -1,4 +1,4 @@
-"""Config flow for IronLogic Z-5R Controller integration."""
+"""Config flow for IronLogic IP Controller integration."""
 
 import asyncio
 import logging
@@ -25,7 +25,7 @@ STEP_MANUAL_DATA_SCHEMA = vol.Schema(
 
 
 class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for IronLogic Z-5R."""
+    """Handle a config flow for IronLogic."""
 
     VERSION = 1
 
@@ -76,7 +76,7 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
                 return self.async_create_entry(
-                    title=f"IronLogic Z-5R ({user_input[CONF_HOST]})",
+                    title=f"IronLogic ({user_input[CONF_HOST]})",
                     data=user_input,
                 )
             except CannotConnect:
@@ -142,7 +142,7 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
                 return self.async_create_entry(
-                    title=f"IronLogic Z-5R ({user_input[CONF_HOST]})",
+                    title=f"IronLogic ({user_input[CONF_HOST]})",
                     data=user_input,
                 )
             except CannotConnect:

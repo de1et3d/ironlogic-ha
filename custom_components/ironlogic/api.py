@@ -1,4 +1,4 @@
-"""API wrapper for IronLogic Z-5R controller."""
+"""API wrapper for IronLogic IP Controller."""
 
 import asyncio
 import logging
@@ -10,7 +10,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class IronLogicAPI:
-    """API wrapper for IronLogic Z-5R controller."""
+    """API wrapper for IronLogic IP Controller."""
 
     def __init__(self, host: str, username: str, auth_key: str) -> None:
         """Initialize API."""

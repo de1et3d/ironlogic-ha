@@ -1,4 +1,4 @@
-# IronLogic Z-5R Controller for Home Assistant
+# IronLogic IP Controller for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/de1et3d/ironlogic-ha)
@@ -17,7 +17,7 @@
 - Controller availability monitoring - all entities become unavailable when controller is offline
 - Controller reboot - reboot the controller directly from HA
 - Local & offline‑friendly - controller works autonomously even when HA is down
-- Multi‑controller - add multiple IronLogic Z-5R devices
+- Multi‑controller - add multiple IronLogic devices
 - Device controls - enable/disable door sensor and adjust poll interval directly on the device page
 - Translations - English and Russian
 
@@ -52,7 +52,7 @@ This integration has been tested with:
 
 ## 🔧 Hardware Requirements
 
-- IronLogic Z-5R controller (or compatible)
+- IronLogic IP Controller
 - NFC/RFID reader (e.g., Matrix‑III NFC)
 - Electric lock (electromechanical or electromagnetic)
 - 12V power supply
@@ -80,7 +80,7 @@ This integration has been tested with:
 
 1. **Add the integration**
    - Go to **Settings → Devices & Services → Add Integration**
-   - Search for **"IronLogic Z-5R Controller"**
+   - Search for **"IronLogic IP Controller"**
    - Choose setup method:
      - **Scan network for controllers** — automatically scans the local /24 subnet (up to 254 IP addresses) for IronLogic controllers
      - **Configure manually** — enter the IP address manually
@@ -105,7 +105,7 @@ This integration has been tested with:
 
 5. **Verify**
    - After reboot, the controller should send `power_on` to HA.
-   - The device name will update to `IronLogic Z-5R (SN @ IP)` once the serial number is received.
+   - The device name will update to `IronLogic (SN @ IP)` once the serial number is received.
    - If nothing happens, check network connectivity and logs.
 
 > ⚠️ **Important:** The controller must be able to reach your Home Assistant instance. Use a local IP if both are on the same network.

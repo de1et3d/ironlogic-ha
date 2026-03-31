@@ -1,6 +1,6 @@
 {
   "domain": "ironlogic",
-  "name": "IronLogic Z-5R Controller",
+  "name": "IronLogic IP Controller",
   "codeowners": ["@de1et3d"],
   "config_flow": true,
   "dependencies": ["http"],

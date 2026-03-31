@@ -1,4 +1,4 @@
-"""Binary sensor platform for IronLogic Z-5R."""
+"""Binary sensor platform for IronLogic."""
 
 import logging
 from datetime import timedelta

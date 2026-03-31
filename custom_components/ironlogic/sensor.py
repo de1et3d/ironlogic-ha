@@ -1,4 +1,4 @@
-"""Sensor platform for IronLogic Z-5R."""
+"""Sensor platform for IronLogic."""
 
 import logging
 from typing import Any
