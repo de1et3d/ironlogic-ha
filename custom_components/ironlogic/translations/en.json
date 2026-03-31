@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "IronLogic Z-5R Controller Setup",
+        "title": "IronLogic IP Controller Setup",
         "description": "Choose setup method:",
         "data": {
           "setup_method": "Setup method"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manual configuration",
-        "description": "Enter the IP address, username and authentication key for your IronLogic Z-5R controller.\n\n- For Z-5R (Wi-Fi) username is usually `z5rwifi`\n- For Z-5R Web username is `z5rweb`\n- For Matrix-II (Wi-Fi) username is `matrix`",
+        "description": "Enter the IP address, username and authentication key for your IronLogic IP Controller.\n\n- For Z-5R (Wi-Fi) username is usually `z5rwifi`\n- For Z-5R Web username is `z5rweb`\n- For Matrix-II (Wi-Fi) username is `matrix`",
         "data": {
           "host": "IP address",
           "username": "Username",

@@ -1,4 +1,4 @@
-"""Number platform for IronLogic Z-5R controls."""
+"""Number platform for IronLogic controls."""
 
 import logging
 

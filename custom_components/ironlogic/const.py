@@ -1,4 +1,4 @@
-"""Constants for IronLogic Z-5R Controller integration."""
+"""Constants for IronLogic IP Controller integration."""
 
 DOMAIN = "ironlogic"
 CONF_USERNAME = "username"

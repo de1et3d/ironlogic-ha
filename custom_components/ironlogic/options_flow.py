@@ -1,10 +1,10 @@
-"""Options flow for IronLogic Z-5R."""
+"""Options flow for IronLogic."""
 
 from homeassistant import config_entries
 
 
 class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle options flow for IronLogic Z-5R."""
+    """Handle options flow for IronLogic."""
 
     async def async_step_init(self, user_input=None):
         """Handle options flow."""
