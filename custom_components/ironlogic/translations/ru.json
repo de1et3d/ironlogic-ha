@@ -40,6 +40,13 @@
           "username": "z5rwifi / z5rweb / matrix",
           "auth_key": "8 символов с наклейки контроллера"
         }
+      },
+      "connection_type": {
+        "title": "Выбор протокола Web-JSON",
+        "description": "Выберите режим протокола, настроенный в вашем контроллере.\n\nРежим HTTP работает через вебхук, поддерживает все функции, кроме синхронизации ключей.\nРежим WebSocket поддерживает все функции, включая синхронизацию ключей.",
+        "data": {
+          "connection_type": "Режим протокола"
+        }
       }
     },
     "error": {
@@ -55,6 +62,45 @@
     }
   },
   "options": {
+    "step": {
+      "init": {
+        "title": "Настройка IronLogic",
+        "menu_options": {
+          "general": "Общие настройки",
+          "allowed_keys": "Белый список ключей"
+        }
+      },
+      "general": {
+        "title": "Общие настройки",
+        "description": "Настройка поведения интеграции.\n\n{conn_note}",
+        "data": {
+          "connection_type": "Режим протокола",
+          "poll_interval": "Интервал проверки доступности контроллера (секунды)",
+          "use_door_sensor": "Использовать датчик двери (геркон)"
+        }
+      },
+      "offline": {
+        "title": "Контроллер недоступен",
+        "description": "{message}",
+        "data": {
+          "refresh": "Проверить снова"
+        }
+      },
+      "allowed_keys": {
+        "title": "Белый список ключей",
+        "description": "Текущий белый список:\n{keys_list}\n\nВыберите действие и заполните соответствующие поля.",
+        "data": {
+          "action": "Действие",
+          "key_number": "Номер ключа (hex)",
+          "key_name": "Имя ключа",
+          "key_type": "Тип ключа",
+          "remove_key_number": "Номер ключа для удаления"
+        }
+      }
+    },
+    "error": {
+      "key_number_required": "Необходимо указать номер ключа"
+    },
     "abort": {
       "no_options": "Нет доступных настроек. Используйте элементы управления на странице устройства."
     }
@@ -101,7 +147,7 @@
           "door_locked_denied": "Дверь заблокирована, доступ запрещен",
           "door_locked_denied_exit": "Дверь заблокирована, доступ запрещен (выход)",
           "passage_not_completed": "Проход не совершен за заданное время",
-          "passage_not_completed_exit": "Проход не совершен за заданное время (выход)"
+          "passage_not_completed_exit": "Проход не совершён за заданное время (выход)"
         }
       },
       "last_key": {
@@ -127,6 +173,9 @@
         "state": {
           "click_to_copy": "Нажмите, чтобы скопировать"
         }
+      },
+      "allowed_keys": {
+        "name": "Разрешённые ключи"
       }
     },
     "switch": {
@@ -145,6 +194,9 @@
       },
       "set_webhook": {
         "name": "Установить webhook URL"
+      },
+      "export_keys": {
+        "name": "Экспорт ключей"
       }
     }
   },
@@ -185,6 +237,26 @@
     "clear_all_keys": {
       "name": "Очистить все ключи",
       "description": "Удалить все ключи из контроллера."
+    },
+    "export_keys": {
+      "name": "Экспорт ключей",
+      "description": "Экспортировать все ключи в CSV файл.",
+      "fields": {
+        "file_path": {
+          "name": "Путь к файлу",
+          "description": "Путь для сохранения CSV файла (например, /config/ironlogic_keys.csv)"
+        }
+      }
+    },
+    "import_keys": {
+      "name": "Импорт ключей",
+      "description": "Импортировать ключи из CSV файла.",
+      "fields": {
+        "file_path": {
+          "name": "Путь к файлу",
+          "description": "Путь к CSV файлу (например, /config/ironlogic_keys.csv)"
+        }
+      }
     }
   }
 }

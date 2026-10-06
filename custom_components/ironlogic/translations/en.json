@@ -42,6 +42,13 @@
           "username": "z5rwifi / z5rweb / matrix",
           "auth_key": "8-character key from controller label"
         }
+      },
+      "connection_type": {
+        "title": "Web-JSON Protocol",
+        "description": "Select the protocol mode configured in your controller.\n\nHTTP mode works with webhook, supports all features except key sync.\nWebSocket mode supports full features including key synchronization.",
+        "data": {
+          "connection_type": "Protocol mode"
+        }
       }
     },
     "error": {
@@ -57,6 +64,45 @@
     }
   },
   "options": {
+    "step": {
+      "init": {
+        "title": "IronLogic Configuration",
+        "menu_options": {
+          "general": "General settings",
+          "allowed_keys": "Allowed keys whitelist"
+        }
+      },
+      "general": {
+        "title": "General settings",
+        "description": "Configure integration behavior.\n\n{conn_note}",
+        "data": {
+          "connection_type": "Protocol mode",
+          "poll_interval": "Controller availability check interval (seconds)",
+          "use_door_sensor": "Use door sensor (magnetic contact)"
+        }
+      },
+      "offline": {
+        "title": "Controller offline",
+        "description": "{message}",
+        "data": {
+          "refresh": "Check again"
+        }
+      },
+      "allowed_keys": {
+        "title": "Allowed keys whitelist",
+        "description": "Current whitelist:\n{keys_list}\n\nSelect action and fill fields accordingly.",
+        "data": {
+          "action": "Action",
+          "key_number": "Key number (hex)",
+          "key_name": "Key name",
+          "key_type": "Key type",
+          "remove_key_number": "Key number to remove"
+        }
+      }
+    },
+    "error": {
+      "key_number_required": "Key number is required"
+    },
     "abort": {
       "no_options": "No configuration options available. Use device controls."
     }
@@ -129,6 +175,9 @@
         "state": {
           "click_to_copy": "Click to copy"
         }
+      },
+      "allowed_keys": {
+        "name": "Allowed keys"
       }
     },
     "switch": {
@@ -147,6 +196,9 @@
       },
       "set_webhook": {
         "name": "Set webhook URL"
+      },
+      "export_keys": {
+        "name": "Export keys"
       }
     }
   },
@@ -187,6 +239,26 @@
     "clear_all_keys": {
       "name": "Clear all keys",
       "description": "Remove all keys from the controller."
+    },
+    "export_keys": {
+      "name": "Export keys",
+      "description": "Export all keys to a CSV file.",
+      "fields": {
+        "file_path": {
+          "name": "File path",
+          "description": "Path to save the CSV file (e.g., /config/ironlogic_keys.csv)"
+        }
+      }
+    },
+    "import_keys": {
+      "name": "Import keys",
+      "description": "Import keys from a CSV file.",
+      "fields": {
+        "file_path": {
+          "name": "File path",
+          "description": "Path to the CSV file (e.g., /config/ironlogic_keys.csv)"
+        }
+      }
     }
   }
 }

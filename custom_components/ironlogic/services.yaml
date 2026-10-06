@@ -52,3 +52,42 @@ clear_all_keys:
     entity:
       integration: ironlogic
       domain: lock
+
+export_keys:
+  name: Export keys
+  description: Export all keys to a CSV file.
+  target:
+    entity:
+      integration: ironlogic
+      domain: lock
+  fields:
+    file_path:
+      name: File path
+      description: Path to save the CSV file (e.g., /config/ironlogic_keys.csv)
+      required: false
+      default: "/config/ironlogic_keys_export.csv"
+      selector:
+        text:
+
+import_keys:
+  name: Import keys
+  description: Import keys from a CSV file.
+  target:
+    entity:
+      integration: ironlogic
+      domain: lock
+  fields:
+    file_path:
+      name: File path
+      description: Path to the CSV file (e.g., /config/ironlogic_keys.csv)
+      required: true
+      selector:
+        text:
+
+sync_keys:
+  name: Sync keys
+  description: Synchronize keys from controller.
+  target:
+    entity:
+      integration: ironlogic
+      domain: lock

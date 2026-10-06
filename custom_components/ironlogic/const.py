@@ -3,18 +3,18 @@
 DOMAIN = "ironlogic"
 CONF_USERNAME = "username"
 CONF_AUTH_KEY = "auth_key"
+CONF_CONNECTION_TYPE = "connection_type"
+CONNECTION_TYPE_HTTP = "http"
+CONNECTION_TYPE_WEBSOCKET = "websocket"
 DEFAULT_POLL_INTERVAL = 30
 DEFAULT_TIMEOUT = 10
 
-# Defaults
 DEFAULT_OPEN_TIME = 3
 DEFAULT_COMMAND_COOLDOWN = 3
 
-# Storage
 STORAGE_KEY = f"{DOMAIN}.keys"
 STORAGE_VERSION = 1
 
-# Event types from controller (Appendix 1)
 EVENT_OPENED_BY_BUTTON = 0x00
 EVENT_OPENED_BY_BUTTON_EXIT = 0x01
 EVENT_KEY_NOT_FOUND = 0x02
@@ -68,7 +68,6 @@ EVENT_HOTEL_CARD = 0x41
 EVENT_CARD_NUMBER = 0x55
 EVENT_CARD_NUMBER_7BYTE = 0x56
 
-# Door events (both entry and exit)
 DOOR_OPEN_EVENTS = {
     EVENT_DOOR_OPENED,
     EVENT_DOOR_OPENED_EXIT,
@@ -77,5 +76,4 @@ DOOR_OPEN_EVENTS = {
 }
 DOOR_CLOSED_EVENTS = {EVENT_DOOR_CLOSED, EVENT_DOOR_CLOSED_EXIT}
 
-# Platforms
 PLATFORMS = ["lock", "sensor", "binary_sensor", "switch", "number", "button"]

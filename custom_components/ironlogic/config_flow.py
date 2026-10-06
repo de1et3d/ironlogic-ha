@@ -11,7 +11,13 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_AUTH_KEY, DOMAIN
+from .const import (
+    CONF_AUTH_KEY,
+    CONF_CONNECTION_TYPE,
+    CONNECTION_TYPE_HTTP,
+    CONNECTION_TYPE_WEBSOCKET,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,15 +38,19 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize config flow."""
         self._scanned_hosts = []
+        self._manual_host = None
+        self._manual_username = None
+        self._manual_auth_key = None
+        self._selected_host = None
+        self._selected_username = None
+        self._selected_auth_key = None
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        """Return options flow (empty)."""
-        class EmptyOptionsFlow(config_entries.OptionsFlow):
-            async def async_step_init(self, user_input=None):
-                return self.async_abort(reason="no_options")
-        return EmptyOptionsFlow()
+        """Return options flow."""
+        from .options_flow import IronLogicOptionsFlowHandler
+        return IronLogicOptionsFlowHandler()
 
     async def async_step_user(self, user_input: dict | None = None) -> FlowResult:
         """Handle the initial step: choose manual or scan."""
@@ -64,7 +74,7 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_manual(self, user_input: dict | None = None) -> FlowResult:
-        """Manual configuration step."""
+        """Manual configuration step - enter IP."""
         errors = {}
 
         if user_input is not None:
@@ -75,10 +85,12 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[CONF_AUTH_KEY],
                 )
 
-                return self.async_create_entry(
-                    title=f"IronLogic ({user_input[CONF_HOST]})",
-                    data=user_input,
-                )
+                self._manual_host = user_input[CONF_HOST]
+                self._manual_username = user_input[CONF_USERNAME]
+                self._manual_auth_key = user_input[CONF_AUTH_KEY]
+                
+                return await self.async_step_connection_type()
+                
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -100,13 +112,11 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_scan(self, user_input: dict | None = None) -> FlowResult:
         """Scan local network for controllers."""
         if user_input is None:
-            # Show form with start button
             return self.async_show_form(
                 step_id="scan",
                 data_schema=vol.Schema({}),
             )
 
-        # Start scanning
         await self._scan_network()
 
         if not self._scanned_hosts:
@@ -134,17 +144,17 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_select_host(self, user_input: dict | None = None) -> FlowResult:
         """Select host from scanned list."""
         if user_input is not None:
+            self._selected_host = user_input["host"]
+            self._selected_username = user_input[CONF_USERNAME]
+            self._selected_auth_key = user_input[CONF_AUTH_KEY]
+            
             try:
                 await self._test_connection(
-                    user_input[CONF_HOST],
-                    user_input[CONF_USERNAME],
-                    user_input[CONF_AUTH_KEY],
+                    self._selected_host,
+                    self._selected_username,
+                    self._selected_auth_key,
                 )
-
-                return self.async_create_entry(
-                    title=f"IronLogic ({user_input[CONF_HOST]})",
-                    data=user_input,
-                )
+                return await self.async_step_connection_type()
             except CannotConnect:
                 return self.async_show_form(
                     step_id="select_host",
@@ -181,11 +191,55 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
+    async def async_step_connection_type(self, user_input: dict | None = None) -> FlowResult:
+        """Choose Web-JSON protocol type."""
+        if user_input is not None:
+            connection_type = user_input.get("connection_type")
+            
+            if self._selected_host is not None:
+                data = {
+                    CONF_HOST: self._selected_host,
+                    CONF_USERNAME: self._selected_username,
+                    CONF_AUTH_KEY: self._selected_auth_key,
+                    CONF_CONNECTION_TYPE: connection_type,
+                }
+            else:
+                data = {
+                    CONF_HOST: self._manual_host,
+                    CONF_USERNAME: self._manual_username,
+                    CONF_AUTH_KEY: self._manual_auth_key,
+                    CONF_CONNECTION_TYPE: connection_type,
+                }
+            
+            await self.async_set_unique_id(f"ironlogic_{data[CONF_HOST]}")
+            self._abort_if_unique_id_configured()
+            
+            return self.async_create_entry(
+                title=f"IronLogic ({data[CONF_HOST]})",
+                data=data,
+            )
+
+        return self.async_show_form(
+            step_id="connection_type",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("connection_type", default=CONNECTION_TYPE_HTTP): vol.In(
+                        {
+                            CONNECTION_TYPE_HTTP: "HTTP (webhook)",
+                            CONNECTION_TYPE_WEBSOCKET: "WebSocket (full features)",
+                        }
+                    ),
+                }
+            ),
+            description_placeholders={
+                "note": "Select the protocol mode configured in your controller."
+            },
+        )
+
     async def _scan_network(self) -> None:
         """Scan local network for IronLogic controllers."""
         self._scanned_hosts = []
         
-        # Get IPs to scan (up to ~250 addresses)
         ips_to_scan = await self._get_local_ips()
         
         if not ips_to_scan:
@@ -211,7 +265,6 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Get list of IPs to scan on local network."""
         ips = []
         try:
-            # Get HA's IP from config
             ha_ip = self.hass.config.api.local_ip
             
             if not ha_ip:
@@ -219,15 +272,12 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
             _LOGGER.debug("HA local IP: %s", ha_ip)
             
-            # Validate IP
             parts = ha_ip.split(".")
             if len(parts) != 4:
                 raise ValueError(f"Invalid IP: {ha_ip}")
             
-            # Assume /24 subnet
             base = f"{parts[0]}.{parts[1]}.{parts[2]}"
             
-            # Scan addresses 1-254
             for i in range(1, 255):
                 ips.append(f"{base}.{i}")
             
@@ -235,7 +285,7 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
         except Exception as e:
             _LOGGER.error("Could not determine local network: %s", e)
-            return []  # Return empty list if we can't determine network
+            return []
             
         return ips[:250]
 
@@ -245,7 +295,6 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         try:
             async with session.get(url, timeout=2) as resp:
-                # Log headers for debugging
                 _LOGGER.debug("Checking %s - Status: %d, Headers: %s", ip, resp.status, dict(resp.headers))
                 
                 auth_header = resp.headers.get("WWW-Authenticate", "")
