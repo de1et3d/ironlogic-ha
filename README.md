@@ -48,15 +48,7 @@ This integration has been tested with:
 - Z-5R (Web)
 - Z-5R (Web BT)
 - Matrix-II (EH K Wi‑Fi)
-- Any IronLogic controller with Web-JSON protocol support
-
-## 🔧 Hardware Requirements
-
-- IronLogic IP Controller
-- NFC/RFID reader (e.g., Matrix‑III NFC)
-- Electric lock (electromechanical or electromagnetic)
-- 12V power supply
-- Optional: magnetic contact sensor for door status
+- IronLogic controllers with Web-JSON protocol support
 
 ## 📦 Installation
 
@@ -98,8 +90,7 @@ This integration has been tested with:
 
 4. **Configure webhook**
    - On the device page, click the **"Set webhook URL"** button.
-   - Then click **"Reboot controller"** to apply the settings.
-   - The controller will start sending events to Home Assistant.
+   - The controller will reboot and start sending events to Home Assistant.
 
    *Alternatively, you can find the webhook URL in the **Webhook URL** sensor under Diagnostics if you need to configure it manually. Click on it → open the detail card → three dots → details → copy the `full_url` attribute.*
 
@@ -226,13 +217,3 @@ key_number,name,type,added_at,last_used
 - Full key management with UI
 - Controller settings synchronization (open time, passage timeout, etc.)
 - Advanced key management (time zones, block lists)
-
-## 🤝 Contributing
-
-- Fork the repository
-- Create a feature branch
-- Submit a pull request
-
-## 📄 License
-
-Licensed under **Apache License 2.0**. See `LICENSE` file for details.

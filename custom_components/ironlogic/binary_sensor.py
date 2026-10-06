@@ -126,7 +126,9 @@ class IronLogicDoorSensor(BinarySensorEntity):
 
     @property
     def available(self) -> bool:
-        """Return if sensor is available (controller must be reachable)."""
+        """Return if sensor is available."""
+        if not self._data.get("use_door_sensor", False):
+            return False
         return self._controller_available
 
     async def async_added_to_hass(self):
@@ -156,6 +158,9 @@ class IronLogicDoorSensor(BinarySensorEntity):
 
     @callback
     def _handle_update(self, event):
+        if not self._data.get("use_door_sensor", False):
+            return
+            
         event_code = event.data.get("event_code")
         if event_code in (0x20, 0x21, 0x0C, 0x0D):
             self.update_state(True)

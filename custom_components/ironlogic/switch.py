@@ -53,7 +53,10 @@ class IronLogicDoorSensorSwitch(SwitchEntity):
         self._data["use_door_sensor"] = True
         self._attr_is_on = True
         self.async_write_ha_state()
-        await self.hass.config_entries.async_reload(self._entry.entry_id)
+        
+        if self._data.get("door_sensor_entity"):
+            self._data["door_sensor_entity"]._attr_available = True
+            self._data["door_sensor_entity"].async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
         """Disable door sensor."""
@@ -63,4 +66,7 @@ class IronLogicDoorSensorSwitch(SwitchEntity):
         self._data["use_door_sensor"] = False
         self._attr_is_on = False
         self.async_write_ha_state()
-        await self.hass.config_entries.async_reload(self._entry.entry_id)
+        
+        if self._data.get("door_sensor_entity"):
+            self._data["door_sensor_entity"]._attr_is_on = False
+            self._data["door_sensor_entity"].async_write_ha_state()

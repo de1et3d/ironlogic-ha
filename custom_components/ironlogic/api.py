@@ -6,6 +6,8 @@ import json
 
 import aiohttp
 
+from .const import CONNECTION_TYPE_WEBSOCKET
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -109,28 +111,31 @@ class IronLogicAPI:
             _LOGGER.error("Get settings failed: %s", err)
             return None
 
-    async def set_webhook_url(self, webhook_url: str, period: int = 10) -> bool:
+    async def set_webhook_url(self, webhook_url: str, period: int = 10, connection_type: str = None) -> bool:
         """Set webhook URL in controller."""
-        # Get current settings
         settings = await self.get_settings()
         if not settings:
             _LOGGER.error("Failed to get current settings")
             return False
 
-        # Update webjson section
         if "webjson" not in settings:
             settings["webjson"] = {}
         
-        settings["webjson"]["server"] = webhook_url
+        if connection_type == CONNECTION_TYPE_WEBSOCKET:
+            ws_url = webhook_url.replace("http://", "ws://").replace("https://", "wss://")
+            settings["webjson"]["server"] = ws_url
+            settings["webjson"]["protocol"] = True
+            _LOGGER.info("Using WebSocket URL: %s", ws_url)
+        else:
+            settings["webjson"]["server"] = webhook_url
+            settings["webjson"]["protocol"] = False
+        
         settings["webjson"]["period"] = period
-        settings["webjson"]["protocol"] = 0  # HTTP (0 = HTTP, 1 = HTTPS)
         settings["webjson"]["login"] = ""
         settings["webjson"]["password"] = ""
         
-        # Ensure mode is Web-JSON (4)
         settings["mode"] = 4
 
-        # Send back
         url = f"{self.base_url}/save_workmode"
         auth = aiohttp.BasicAuth(self.username, self.auth_key)
 
@@ -143,7 +148,8 @@ class IronLogicAPI:
                     timeout=10
                 ) as resp:
                     if resp.status == 200:
-                        _LOGGER.info("Webhook URL set successfully")
+                        _LOGGER.info("Webhook URL set successfully (protocol=%s)", 
+                                    "WebSocket" if connection_type == CONNECTION_TYPE_WEBSOCKET else "HTTP")
                         return True
                     else:
                         _LOGGER.error("Set webhook failed with code %d", resp.status)
