@@ -1,7 +1,7 @@
 {
   "name": "IronLogic IP Controller",
   "description": "Home Assistant integration for IronLogic IP controllers",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "authors": [
     {
       "name": "de1et3d",
