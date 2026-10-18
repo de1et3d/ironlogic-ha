@@ -30,11 +30,11 @@ This integration has been tested with:
 | **Controller** | IronLogic Z-5R (mod. Wi-Fi) |
 | **Controller FW** | 2.55 |
 | **Wi-Fi Module FW** | 1.79 |
-| **Web-JSON Mode** | HTTP (not Websocket) |
-| **Home Assistant** | Core 2026.3.3, 2026.3.4 (HA OS) |
-| **Supervisor** | 2026.03.2 |
-| **Operating System** | 17.1 |
-| **Frontend** | 20260312.0 |
+| **Web-JSON Mode** | Websocket (not HTTP) |
+| **Home Assistant** | Core 2026.9.4 (HA OS) |
+| **Supervisor** | 2026.09.3 |
+| **Operating System** | 18.3 |
+| **Frontend** | 20260826.7 |
 
 **Important notes:**
 - HTTPS may work unreliably or not work at all. Use HTTP for controller communication.
