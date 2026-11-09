@@ -164,7 +164,7 @@ class IronLogicWebSocketServer:
         return None
 
     def _is_key_allowed(self, key_id: str) -> int:
-        """Check if key is in whitelist."""
+        """Check if key is allowed."""
         if not key_id:
             return 0
         for key in self.entry_data.get("keys", []):
@@ -178,7 +178,7 @@ class IronLogicWebSocketServer:
         return 0
 
     def _build_sync_commands(self, start_id: int) -> list:
-        """Build commands to sync whitelist to controller."""
+        """Build commands to sync allowed keys to controller."""
         keys = self.entry_data.get("keys", [])
         if not keys:
             return []
@@ -241,13 +241,33 @@ class IronLogicWebSocketServer:
         model = get_model_from_type(controller_type)
         current_sn = self.entry_data.get("sn")
         current_model = self.entry_data.get("model")
+        need_update = False
 
         if sn != "unknown" and current_sn != sn:
             self.entry_data["sn"] = sn
+            need_update = True
             self.hass.bus.async_fire(f"{DOMAIN}_sn_updated", {"sn": sn})
 
         if current_model != model:
             self.entry_data["model"] = model
+            need_update = True
+
+        if need_update:
+            entry = self.hass.config_entries.async_get_entry(self.entry_id)
+            if entry:
+                new_data = {**entry.data, "sn": sn, "model": model}
+                self.hass.config_entries.async_update_entry(entry, data=new_data)
+
+            new_name = f"IronLogic {model} ({sn} @ {self.entry_data['host']})"
+            device_registry = dr.async_get(self.hass)
+            device = device_registry.async_get_device(
+                identifiers={(DOMAIN, self.entry_data["host"])}
+            )
+            if device:
+                device_registry.async_update_device(device.id, name=new_name)
+
+            if entry:
+                self.hass.config_entries.async_update_entry(entry, title=new_name)
 
     async def _handle_events(self, message: dict) -> Optional[dict]:
         """Handle events message."""
