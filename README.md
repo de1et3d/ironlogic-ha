@@ -30,63 +30,81 @@ This integration has been tested with:
 | **Controller** | IronLogic Z-5R (mod. Wi-Fi) |
 | **Controller FW** | 2.55 |
 | **Wi-Fi Module FW** | 1.79 |
-| **Web-JSON Mode** | Websocket (not HTTP) |
-| **Home Assistant** | Core 2026.9.4 (HA OS) |
-| **Supervisor** | 2026.09.3 |
-| **Operating System** | 18.3 |
-| **Frontend** | 20260826.7 |
+| **Web-JSON Mode** | WebSocket |
+| **Reader** | IronLogic Matrix-III NFC |
+| **Reader Protocol** | Wiegand (master key programming is not supported via Wiegand) |
+| **HA Installation method** | Home Assistant OS |
+| **Home Assistant** | Core 2026.11.0 |
+| **Supervisor** | 2026.10.5 |
+| **Operating System** | 18.4 |
 
 **Important notes:**
+
 - HTTPS may work unreliably or not work at all. Use HTTP for controller communication.
 - If you need HTTPS for HA while keeping HTTP for the controller, use a reverse proxy (e.g., Nginx Proxy Manager add-on).
 - Controller and HA should be in the same subnet. Cross-subnet operation was not tested.
 - Domain names can be used if the controller can access DNS.
+- **NFC with Android smartphones is not supported.** Due to Android limitations, the smartphone provides a random UUID instead of a fixed identifier. An NFC tag can be used, but an NFC tag attached directly to the smartphone may not work either.
 
 ## 🏗️ Supported IP controllers
 
-- Z-5R (Wi‑Fi) - *tested*
+- Z-5R (Wi‑Fi) - **tested**
 - Z-5R (Web)
 - Z-5R (Web BT)
-- Matrix-II (EH K Wi‑Fi)
+- Matrix-II/III (EH K Wi‑Fi)
 - IronLogic controllers with Web-JSON protocol support
 
 ## 📦 Installation
 
-### HACS (recommended)
+### Marketplace (Home Assistant 2026.11 and newer)
 
-1. Open HACS in Home Assistant
-2. Go to **Integrations → Custom repositories**
+1. Open **Settings → Marketplace**.
+2. Select **Add from link**.
+3. Enter the repository URL:
+
+   `https://github.com/de1et3d/ironlogic-ha`
+
+4. If prompted, authorize Home Assistant to access your GitHub account.
+5. Install the integration.
+6. Restart Home Assistant if requested.
+
+After installation, go to **Settings → Devices & Services → Add Integration** and search for **IronLogic IP Controller**.
+
+### HACS (Home Assistant 2026.10 and older)
+
+1. Open HACS in Home Assistant.
+2. Go to **Integrations → Custom repositories**.
 3. Add repository URL: `https://github.com/de1et3d/ironlogic-ha`
-4. Select category: **Integration**
-5. Click **Download** and restart HA
+4. Select category: **Integration**.
+5. Click **Download** and restart HA.
 
 ### Manual installation
 
-1. Download the latest release
-2. Copy `custom_components/ironlogic` to `config/custom_components/`
-3. Restart Home Assistant
+1. Download the latest release.
+2. Copy `custom_components/ironlogic` to `config/custom_components/`.
+3. Restart Home Assistant.
 
 ## ⚙️ Configuration
 
 ### Step-by-step setup
 
 1. **Add the integration**
-   - Go to **Settings → Devices & Services → Add Integration**
-   - Search for **"IronLogic IP Controller"**
+   - Go to **Settings → Devices & Services → Add Integration**.
+   - Search for **"IronLogic IP Controller"**.
    - Choose setup method:
-     - **Scan network for controllers** — automatically scans the local /24 subnet (up to 254 IP addresses) for IronLogic controllers
-     - **Configure manually** — enter the IP address manually
+     - **Scan network for controllers** - automatically scans the local /24 subnet (up to 254 IP addresses) for IronLogic controllers.
+     - **Configure manually** - enter the IP address manually.
 
 2. **If scanning is selected:**
-   - Wait for the scan to complete (up to 30 seconds)
-   - Select your controller from the list
-   - Enter the **Username** and **Authentication key**
+   - Wait for the scan to complete (up to 30 seconds).
+   - Select your controller from the list.
+   - Enter the **Username** and **Authentication key**.
 
 3. **If manual configuration is selected:**
    - Enter:
-     - **Host** — IP address of your controller (e.g., `192.168.1.100`)
-     - **Username** — depends on model: Z-5R (Wi-Fi): `z5rwifi`, Z-5R Web: `z5rweb`, Matrix-II (Wi-Fi): `matrix`
-     - **Auth Key** — 8‑character key from the controller. If you changed it from the factory default, find it in the controller's web interface under "Work Mode" settings.
+     - **Host** - IP address of your controller (e.g., `192.168.1.100`).
+     - **Username** - depends on model: Z-5R (Wi-Fi): `z5rwifi`, Z-5R Web: `z5rweb`, Matrix-II (Wi-Fi): `matrix`.
+     - **Auth Key** - 8‑character key from the controller. If you changed it from the factory default, find it in the controller's web interface under "Work Mode" settings.
 
 4. **Configure webhook**
    - On the device page, click the **"Set webhook URL"** button.
@@ -104,6 +122,7 @@ This integration has been tested with:
 ### Debug server (for troubleshooting)
 
 If you need to debug the Web-JSON communication, you can use the included debug server.
+
 See [debug_server.py](debug_server.py) for a simple Python script that logs all controller requests.
 
 ## 🎮 Entities Created
@@ -122,17 +141,25 @@ See [debug_server.py](debug_server.py) for a simple Python script that logs all 
 | `button.reboot` | Button | Reboot the controller (in device Diagnostics) |
 | `button.set_webhook` | Button | Automatically configure webhook URL in controller |
 
-## 🔑 Key Management (in development)
+## 🔑 Key Management
 
 | Service | Description |
 |---|---|
 | `ironlogic.add_key` | Add a new key |
 | `ironlogic.remove_key` | Remove a key |
+| `ironlogic.sync_keys` | Sync all keys in HA with the controller |
 | `ironlogic.clear_all_keys` | Delete all keys |
 | `ironlogic.export_keys` | Export keys to CSV |
 | `ironlogic.import_keys` | Import keys from CSV |
 
-*Note: Legacy service names (`add_card`, `remove_card`, `clear_all_cards`) are still available for compatibility.*
+Keys are managed through the integration settings (**Settings → Devices & Services → IronLogic → Configure → Allowed keys**).
+
+Key types:
+- **Normal** — standard key for passage.
+- **Blocking** — higher-status key; in "Blocking" mode only blocking keys are allowed.
+- **Master** — programming key. Master keys are not supported by the Web-JSON protocol and cannot be added to the controller via Home Assistant. When added here as `master`, the key is stored in Home Assistant only. To program a master key into the controller, use an iButton (Touch Memory) reader and the master key programming procedure described in the controller manual. Programming via a Wiegand reader is not supported by the controller.
+
+*Note: legacy service names (`add_card`, `remove_card`, `clear_all_cards`) are still available for compatibility.*
 
 ## 🎯 Events for Automations
 
@@ -146,36 +173,42 @@ See [debug_server.py](debug_server.py) for a simple Python script that logs all 
 | `ironlogic_door_left_open` | Door left open timeout |
 | `ironlogic_door_opened_remotely` | Door opened via HA or network |
 
-### Example Automation
+### Automation Examples
 
 ```yaml
 automation:
   - alias: "Notify when door opened with key"
-    trigger:
-      - platform: event
-        event_type: ironlogic_key_granted
-    action:
-      - service: notify.mobile_app_phone
+    triggers:
+      - event_type: ironlogic_key_granted
+        trigger: event
+    actions:
+      - action: notify.send_message
+        target:
+          label_id: my_phone
         data:
-          message: "Door opened by {{ trigger.event.data.key_name or trigger.event.data.key }}"
+          message: 'Key ID: {{ trigger.event.data.key_name or trigger.event.data.key }}'
+          title: Door opened!
 
   - alias: "Notify on unauthorized access"
-    trigger:
-      - platform: event
-        event_type: ironlogic_key_denied
-    action:
-      - service: notify.mobile_app_phone
+    triggers:
+      - event_type: ironlogic_key_denied
+        trigger: event
+    actions:
+      - action: notify.send_message
+        target:
+          label_id: my_phone
         data:
-          message: "Unauthorized access attempt with key {{ trigger.event.data.key }}"
+          message: 'Key ID: {{ trigger.event.data.key }}'
+          title: Unauthorized access attempt
 ```
 
 ## 🧠 How It Works
 
-- **Web‑JSON** - controller sends POST requests to HA webhook; HA responds with commands
-- **HTTP API** - HA can instantly open the door without waiting for the next controller ping
-- **Availability monitoring** - HA periodically checks controller connectivity; all entities become unavailable if controller is offline
-- **Device controls** - door sensor and poll interval can be configured directly on the device page
-- Commands are queued if the controller is offline - delivered when connection resumes
+- **Web‑JSON** - controller sends POST requests to HA webhook over WebSocket; HA responds with commands.
+- **HTTP API** - HA can instantly open the door without waiting for the next controller ping.
+- **Availability monitoring** - HA periodically checks controller connectivity; all entities become unavailable if controller is offline.
+- **Device controls** - door sensor and poll interval can be configured directly on the device page.
+- Commands are queued if the controller is offline - delivered when connection resumes.
 
 ## 📝 CSV Format for Import/Export
 
@@ -189,31 +222,31 @@ key_number,name,type,added_at,last_used
 
 ### No events received
 
-- Ensure controller mode is **Web‑JSON** with **HTTP** protocol
-- Verify server URL is correct (try local IP, not domain)
-- Check network connectivity between controller and HA
-- Check Home Assistant logs for `custom_components.ironlogic`
+- Ensure the controller is in **Web‑JSON** mode using the **WebSocket** protocol.
+- Verify server URL is correct (try local IP, not domain).
+- Check network connectivity between controller and HA.
+- Check Home Assistant logs for `custom_components.ironlogic`.
 
 ### Authentication failed
 
-- Verify username (case‑sensitive, depends on model)
+- Verify username (case‑sensitive, depends on model).
 - Check auth key (8 characters, case‑sensitive). If you changed it, find it in controller's web interface under "Work Mode" settings.
-- Try logging into the controller web UI with the same credentials
+- Try logging into the controller web UI with the same credentials.
 
 ### Door not opening
 
-- Check wiring between controller and lock
-- Verify lock type setting in controller web UI
-- Try opening via controller web UI to isolate HA issues
+- Check wiring between controller and lock.
+- Verify lock type setting in controller web UI.
+- Try opening via controller web UI to isolate HA issues.
 
 ### Door sensor not showing
 
-- Ensure magnetic contact is connected to controller
-- Enable door sensor via the switch in device Controls
-- Door sensor events will only appear when the switch is ON
+- Ensure magnetic contact is connected to controller.
+- Enable door sensor via the switch in device Controls.
+- Door sensor events will only appear when the switch is ON.
 
 ## 🚧 Planned Features
 
-- Full key management with UI
-- Controller settings synchronization (open time, passage timeout, etc.)
-- Advanced key management (time zones, block lists)
+- Controller settings synchronization (open time, passage timeout, etc.).
+- Advanced key management (time zones, block lists).
+

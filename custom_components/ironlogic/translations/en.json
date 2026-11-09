@@ -69,7 +69,7 @@
         "title": "IronLogic Configuration",
         "menu_options": {
           "general": "General settings",
-          "allowed_keys": "Allowed keys whitelist"
+          "allowed_keys": "Allowed keys"
         }
       },
       "general": {
@@ -89,14 +89,26 @@
         }
       },
       "allowed_keys": {
-        "title": "Allowed keys whitelist",
-        "description": "Current whitelist:\n{keys_list}\n\nSelect action and fill fields accordingly.",
+        "title": "Allowed keys",
+        "description": "Current allowed keys:\n{keys_list}\n\nChoose an action.",
         "data": {
-          "action": "Action",
+          "action": "Action"
+        }
+      },
+      "allowed_keys_add": {
+        "title": "Add key",
+        "description": "Current allowed keys:\n{keys_list}\n\nEnter the key details.\n\n**Note:** Master keys can only be added to the controller via an iButton reader using the master key programming procedure. When added here as 'master', the key is stored in Home Assistant only and will not be sent to the controller.",
+        "data": {
           "key_number": "Key number (hex)",
           "key_name": "Key name",
-          "key_type": "Key type",
-          "remove_key_number": "Key number to remove"
+          "key_type": "Key type (normal, blocking, master)"
+        }
+      },
+      "allowed_keys_remove": {
+        "title": "Remove key",
+        "description": "Current allowed keys:\n{keys_list}\n\nSelect the key to remove.",
+        "data": {
+          "remove_key_number": "Key to remove"
         }
       }
     },
@@ -217,11 +229,11 @@
         },
         "key_type": {
           "name": "Key type",
-          "description": "Type of key (normal, blocking, master)",
+          "description": "Type of key. Master keys are stored in Home Assistant only and cannot be added to the controller via Web-JSON (use an iButton reader).",
           "options": {
             "normal": "Normal",
             "blocking": "Blocking",
-            "master": "Master"
+            "master": "Master (iButton reader only, stored in HA only)"
           }
         }
       }

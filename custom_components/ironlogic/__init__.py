@@ -311,7 +311,7 @@ class IronLogicWebhookView(HomeAssistantView):
         }
 
     def _is_key_allowed(self, key_id: str) -> int:
-        """Check if key is in whitelist."""
+        """Check if key is allowed."""
         if not key_id:
             return 0
         for key in self.entry_data.get("keys", []):

@@ -1,5 +1,6 @@
 """Options flow for IronLogic IP Controller."""
 
+import json
 import logging
 import time
 import voluptuous as vol
@@ -111,22 +112,40 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
     async def async_step_allowed_keys(self, user_input=None):
-        """Manage allowed keys whitelist."""
+        """Choose action for allowed keys."""
         if user_input is not None:
             action = user_input.get("action")
 
             if action == "add":
-                key_number = (user_input.get("key_number") or "").strip().upper()
-                if not key_number:
-                    return self.async_show_form(
-                        step_id="allowed_keys",
-                        data_schema=self._keys_schema(),
-                        errors={"base": "key_number_required"},
-                        description_placeholders={
-                            "keys_list": self._format_keys_list()
-                        },
-                    )
+                return await self.async_step_allowed_keys_add()
+            elif action == "remove":
+                return await self.async_step_allowed_keys_remove()
 
+        return self.async_show_form(
+            step_id="allowed_keys",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("action", default="list"): vol.In(
+                        {
+                            "list": "Show current allowed keys",
+                            "add": "Add key",
+                            "remove": "Remove key",
+                        }
+                    ),
+                }
+            ),
+            description_placeholders={"keys_list": self._format_keys_list()},
+        )
+
+    async def async_step_allowed_keys_add(self, user_input=None):
+        """Add a key to allowed keys."""
+        errors = {}
+
+        if user_input is not None:
+            key_number = (user_input.get("key_number") or "").strip().upper()
+            if not key_number:
+                errors["base"] = "key_number_required"
+            else:
                 name = (user_input.get("key_name") or "").strip()
                 key_type = user_input.get("key_type", "normal")
 
@@ -135,102 +154,139 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
                 self.hass.bus.async_fire(
                     f"{DOMAIN}_keys_updated", {"keys": self.keys}
                 )
-                return self.async_show_form(
-                    step_id="allowed_keys",
-                    data_schema=self._keys_schema(),
-                    description_placeholders={
-                        "keys_list": self._format_keys_list()
-                    },
-                )
-
-            elif action == "remove":
-                key_number = (user_input.get("remove_key_number") or "").strip().upper()
-                if key_number:
-                    await self._remove_allowed_key(key_number)
-                    self.keys = self.data.get("keys", [])
-                    self.hass.bus.async_fire(
-                        f"{DOMAIN}_keys_updated", {"keys": self.keys}
-                    )
-                return self.async_show_form(
-                    step_id="allowed_keys",
-                    data_schema=self._keys_schema(),
-                    description_placeholders={
-                        "keys_list": self._format_keys_list()
-                    },
-                )
-
-            elif action == "refresh":
-                self.keys = self.data.get("keys", [])
-                return self.async_show_form(
-                    step_id="allowed_keys",
-                    data_schema=self._keys_schema(),
-                    description_placeholders={
-                        "keys_list": self._format_keys_list()
-                    },
-                )
+                return await self.async_step_allowed_keys()
 
         return self.async_show_form(
-            step_id="allowed_keys",
-            data_schema=self._keys_schema(),
+            step_id="allowed_keys_add",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("key_number"): str,
+                    vol.Optional("key_name", default=""): str,
+                    vol.Required("key_type", default="normal"): vol.In(
+                        ["normal", "blocking", "master"]
+                    ),
+                }
+            ),
+            errors=errors,
             description_placeholders={"keys_list": self._format_keys_list()},
         )
 
-    def _keys_schema(self):
-        """Return schema for keys form."""
-        return vol.Schema(
-            {
-                vol.Optional("action", default="refresh"): vol.In(
-                    {
-                        "refresh": "Refresh list",
-                        "add": "Add key",
-                        "remove": "Remove key",
-                    }
-                ),
-                vol.Optional("key_number"): str,
-                vol.Optional("key_name"): str,
-                vol.Optional("key_type", default="normal"): vol.In(
-                    ["normal", "blocking"]
-                ),
-                vol.Optional("remove_key_number"): str,
-            }
+    async def async_step_allowed_keys_remove(self, user_input=None):
+        """Remove a key from allowed keys."""
+        errors = {}
+
+        if user_input is not None:
+            key_number = (user_input.get("remove_key_number") or "").strip().upper()
+            if not key_number:
+                errors["base"] = "key_number_required"
+            else:
+                await self._remove_allowed_key(key_number)
+                self.keys = self.data.get("keys", [])
+                self.hass.bus.async_fire(
+                    f"{DOMAIN}_keys_updated", {"keys": self.keys}
+                )
+                return await self.async_step_allowed_keys()
+
+        keys = self._normalized_keys()
+        choices = {}
+        for k in keys:
+            choices[k["key_number"]] = (
+                f"{k['key_number']} — {k.get('name') or 'unnamed'} "
+                f"({k.get('type', 'normal')})"
+            )
+
+        if choices:
+            schema = vol.Schema(
+                {
+                    vol.Required("remove_key_number"): vol.In(choices),
+                }
+            )
+        else:
+            schema = vol.Schema(
+                {
+                    vol.Required("remove_key_number"): str,
+                }
+            )
+
+        return self.async_show_form(
+            step_id="allowed_keys_remove",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"keys_list": self._format_keys_list()},
         )
 
-    def _format_keys_list(self) -> str:
-        """Format keys list for display."""
+    def _normalized_keys(self) -> list:
+        """Return normalized keys list."""
         keys = self.data.get("keys", [])
+        result = []
+        for k in keys:
+            if isinstance(k, str):
+                try:
+                    k = json.loads(k)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            if isinstance(k, dict) and k.get("key_number"):
+                result.append(k)
+        return result
+
+    def _format_keys_list(self) -> str:
+        """Format allowed keys list for display."""
+        keys = self._normalized_keys()
         if not keys:
-            return "No keys in whitelist"
+            return "No allowed keys"
 
         lines = []
         for i, key in enumerate(keys, 1):
-            if isinstance(key, str):
-                import json
-                try:
-                    key = json.loads(key)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            if isinstance(key, dict):
-                name = key.get("name") or "unnamed"
-                key_num = key.get("key_number", "")
-                key_type = key.get("type", "normal")
-                lines.append(f"{i}. {key_num} - {name} ({key_type})")
+            name = key.get("name") or "unnamed"
+            key_num = key.get("key_number", "")
+            key_type = key.get("type", "normal")
+            lines.append(f"{i}. {key_num} - {name} ({key_type})")
 
-        return "\n".join(lines) if lines else "No keys in whitelist"
+        return "\n".join(lines) if lines else "No allowed keys"
+
+    async def _send_command_to_controller(self, command: dict):
+        """Send command to controller via WebSocket server."""
+        ws_server = self.data.get("ws_server")
+        if not ws_server:
+            _LOGGER.warning(
+                "WebSocket server not available, command not sent: %s",
+                command.get("operation"),
+            )
+            return False
+
+        try:
+            result = await ws_server.send_command(command)
+            if result:
+                _LOGGER.warning(
+                    "Sent %s to controller", command.get("operation")
+                )
+            else:
+                _LOGGER.warning(
+                    "Failed to send %s to controller",
+                    command.get("operation"),
+                )
+            return result
+        except Exception as err:
+            _LOGGER.warning(
+                "Error sending %s to controller: %s",
+                command.get("operation"),
+                err,
+            )
+            return False
 
     async def _add_allowed_key(self, key_number: str, name: str, key_type: str):
-        """Add key to whitelist."""
+        """Add key to allowed keys and controller."""
         if "keys" not in self.data:
             self.data["keys"] = []
 
         for existing in self.data["keys"]:
             if isinstance(existing, str):
-                import json
                 try:
                     existing = json.loads(existing)
                 except (json.JSONDecodeError, TypeError):
                     continue
             if isinstance(existing, dict) and existing.get("key_number") == key_number:
-                _LOGGER.warning("Key %s already exists in whitelist", key_number)
+                _LOGGER.warning("Key %s already exists in allowed keys", key_number)
                 return
 
         flags = 8 if key_type == "blocking" else 0
@@ -247,22 +303,50 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         if self.data.get("keys_store"):
             await self.data["keys_store"].async_save({"keys": self.data["keys"]})
 
-        _LOGGER.info("Key %s (%s) added to whitelist", key_number, name)
+        _LOGGER.warning("Key %s (%s) added to allowed keys", key_number, name)
+
+        if key_type == "master":
+            _LOGGER.warning(
+                "Master key %s stored in Home Assistant only. Master keys "
+                "cannot be added to the controller via Web-JSON. Use an "
+                "iButton reader and the master key programming procedure "
+                "to add it to the controller.",
+                key_number,
+            )
+            return
+
+        await self._send_command_to_controller(
+            {
+                "operation": "add_cards",
+                "cards": [
+                    {
+                        "card": key_number,
+                        "flags": flags,
+                        "tz": 255,
+                    }
+                ],
+            }
+        )
 
     async def _remove_allowed_key(self, key_number: str):
-        """Remove key from whitelist."""
+        """Remove key from allowed keys and controller."""
         if "keys" not in self.data:
             return
 
         new_keys = []
+        key_type = None
         for k in self.data["keys"]:
             if isinstance(k, str):
-                import json
                 try:
                     k = json.loads(k)
                 except (json.JSONDecodeError, TypeError):
                     continue
-            if isinstance(k, dict) and k.get("key_number") != key_number:
+            if isinstance(k, dict):
+                if k.get("key_number") == key_number:
+                    key_type = k.get("type")
+                else:
+                    new_keys.append(k)
+            elif not isinstance(k, dict):
                 new_keys.append(k)
 
         self.data["keys"] = new_keys
@@ -270,4 +354,19 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         if self.data.get("keys_store"):
             await self.data["keys_store"].async_save({"keys": new_keys})
 
-        _LOGGER.info("Key %s removed from whitelist", key_number)
+        _LOGGER.warning("Key %s removed from allowed keys", key_number)
+
+        if key_type == "master":
+            _LOGGER.warning(
+                "Master key %s removed from Home Assistant only. It was never "
+                "sent to the controller via Web-JSON.",
+                key_number,
+            )
+            return
+
+        await self._send_command_to_controller(
+            {
+                "operation": "del_cards",
+                "cards": [{"card": key_number}],
+            }
+        )
