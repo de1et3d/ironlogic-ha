@@ -24,13 +24,17 @@ def short_key_number(value: str) -> str:
 
 
 def is_key_allowed(key_id: str, keys: list[dict[str, Any]]) -> int:
-    """Check if key is in allowed list."""
+    """Check if key is in allowed list.
+
+    Matches on full normalized key number (12 hex chars) only.
+    Short key matching (last 6 chars) is NOT used as it can cause
+    false positives when different keys share the same suffix.
+    """
     if not key_id or not keys:
         return 0
-    
+
     normalized_key_id = normalize_key_number(key_id)
-    short_key_id = short_key_number(normalized_key_id).upper()
-    
+
     for key in keys:
         if isinstance(key, str):
             try:
@@ -40,10 +44,8 @@ def is_key_allowed(key_id: str, keys: list[dict[str, Any]]) -> int:
         if isinstance(key, dict):
             stored_key = key.get("key_number", "")
             stored_type = key.get("type", "normal")
-            
+
             if stored_key == normalized_key_id:
-                return 0 if stored_type == "blocking" else 1
-            if stored_key and short_key_number(stored_key).upper() == short_key_id:
                 return 0 if stored_type == "blocking" else 1
     return 0
 

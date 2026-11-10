@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.network import get_url
 
 from .const import DOMAIN, CONNECTION_TYPE_WEBSOCKET
+from .websocket_server import DEFAULT_WS_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -169,7 +170,7 @@ class IronLogicSetWebhookButton(ButtonEntity):
         connection_type = self._data.get("connection_type")
 
         if connection_type == CONNECTION_TYPE_WEBSOCKET:
-            webhook_url = f"ws://{host}:8124{webhook_path}"
+            webhook_url = f"ws://{host}:{DEFAULT_WS_PORT}{webhook_path}"
         else:
             webhook_url = base_url + webhook_path
 

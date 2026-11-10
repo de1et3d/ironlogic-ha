@@ -1,6 +1,7 @@
 # IronLogic IP Controller for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/Home_Assistant-Custom_Integration-blue?logo=homeassistant)](https://www.home-assistant.io/integrations/marketplace/)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-blue)](https://github.com/hacs/integration)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/de1et3d/ironlogic-ha)
 ![GitHub](https://img.shields.io/github/license/de1et3d/ironlogic-ha)
 

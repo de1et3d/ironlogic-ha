@@ -44,7 +44,7 @@ from .keys import is_key_allowed
 
 _LOGGER = logging.getLogger(__name__)
 
-BACKUP_FILE = "/config/ironlogic_keys_backup.json"
+BACKUP_FILENAME = "ironlogic_keys_backup.json"
 
 
 def get_model_from_type(controller_type: str) -> str:
@@ -59,7 +59,7 @@ def get_model_from_type(controller_type: str) -> str:
         return controller_type
 
 
-async def save_keys_backup(entry_id: str, host: str, keys: list) -> None:
+async def save_keys_backup(hass: HomeAssistant, entry_id: str, host: str, keys: list) -> None:
     """Save keys backup to a persistent file."""
     if not keys:
         return
@@ -78,7 +78,7 @@ async def save_keys_backup(entry_id: str, host: str, keys: list) -> None:
         return
 
     try:
-        path = Path(BACKUP_FILE)
+        path = Path(hass.config.path(BACKUP_FILENAME))
         path.parent.mkdir(parents=True, exist_ok=True)
 
         data = {
@@ -92,7 +92,7 @@ async def save_keys_backup(entry_id: str, host: str, keys: list) -> None:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         _LOGGER.info(
-            "Keys backup saved: %d keys to %s", len(normalized), BACKUP_FILE
+            "Keys backup saved: %d keys to %s", len(normalized), path
         )
 
     except Exception as e:
@@ -158,9 +158,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if connection_type == CONNECTION_TYPE_WEBSOCKET:
         from .websocket_server import IronLogicWebSocketServer
 
-        ws_server = IronLogicWebSocketServer(hass, entry.entry_id, entry_data)
-        await ws_server.start()
-        entry_data["ws_server"] = ws_server
+        # Get or create shared WebSocket server
+        ws_server = IronLogicWebSocketServer.get_instance(hass)
+        # Register handler for this entry
+        handler = ws_server.register_handler(entry.entry_id, entry_data)
+        entry_data["ws_handler"] = handler
+        # Start server if not already started
+        if not ws_server._started:
+            await ws_server.start()
     else:
         hass.http.register_view(
             IronLogicWebhookView(hass, entry.entry_id, entry_data)
@@ -198,12 +203,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         data = hass.data[DOMAIN].get(entry.entry_id)
         if data:
-            if data.get("ws_server"):
-                await data["ws_server"].stop()
+            # Unregister WebSocket handler
+            if data.get("ws_handler"):
+                from .websocket_server import IronLogicWebSocketServer
+                ws_server = IronLogicWebSocketServer.get_instance(hass)
+                ws_server.unregister_handler(entry.entry_id)
+                # If no more handlers, stop the shared server
+                if not ws_server._handlers:
+                    await ws_server.stop()
+                    IronLogicWebSocketServer.reset_instance()
+
             if data.get("keys_store"):
                 keys = data.get("keys", [])
                 await data["keys_store"].async_save({"keys": keys})
-                await save_keys_backup(entry.entry_id, data.get("host", ""), keys)
+                await save_keys_backup(hass, entry.entry_id, data.get("host", ""), keys)
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
 
@@ -213,7 +226,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if data:
         keys = data.get("keys", [])
-        await save_keys_backup(entry.entry_id, data.get("host", ""), keys)
+        await save_keys_backup(hass, entry.entry_id, data.get("host", ""), keys)
 
 
 async def async_update_entry_data(

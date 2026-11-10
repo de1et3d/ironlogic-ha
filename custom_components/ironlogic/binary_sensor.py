@@ -1,7 +1,6 @@
 """Binary sensor platform for IronLogic."""
 
 import logging
-from datetime import timedelta
 
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
@@ -11,15 +10,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
-    DEFAULT_POLL_INTERVAL,
     EVENT_DOOR_OPENED,
     EVENT_DOOR_OPENED_EXIT,
     EVENT_DOOR_TAMPERED,
@@ -37,27 +31,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     data = hass.data[DOMAIN][entry.entry_id]
-    api = data["api"]
-    host = data["host"]
-
-    async def async_update_data():
-        try:
-            return await api.check_availability()
-        except Exception as err:
-            raise UpdateFailed(f"Error communicating with API: {err}") from err
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name=f"IronLogic {host}",
-        update_method=async_update_data,
-        update_interval=timedelta(
-            seconds=data.get("poll_interval", DEFAULT_POLL_INTERVAL)
-        ),
-    )
-
-    await coordinator.async_config_entry_first_refresh()
-    data["availability_coordinator"] = coordinator
+    coordinator = data.get("availability_coordinator")
 
     sensors = [IronLogicAvailabilitySensor(coordinator, entry, data)]
 

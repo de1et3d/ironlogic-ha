@@ -4,7 +4,6 @@ import pytest
 import sys
 import os
 
-# Add custom_components to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'custom_components', 'ironlogic'))
 
 from keys import (
@@ -176,7 +175,6 @@ class TestBuildSyncCommands:
             for i in range(55)
         ]
         commands = build_sync_commands(keys, 1, batch_size=50)
-        # Should be 2 commands: 50 + 5
         assert len(commands) == 2
         assert len(commands[0]["keys"]) == 50
         assert len(commands[1]["keys"]) == 5

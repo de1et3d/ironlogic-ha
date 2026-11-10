@@ -13,61 +13,39 @@ from .keys import is_key_allowed, build_sync_commands
 _LOGGER = logging.getLogger(__name__)
 
 SYNC_BATCH_SIZE = 50
+DEFAULT_WS_PORT = 8124
 
 
-class IronLogicWebSocketServer:
-    """WebSocket server for IronLogic controller connections."""
+class IronLogicWebSocketHandler:
+    """Handle WebSocket connection for a single controller entry."""
 
     def __init__(self, hass, entry_id: str, entry_data: dict[str, Any]) -> None:
-        """Initialize WebSocket server."""
+        """Initialize handler for specific entry."""
         self.hass = hass
         self.entry_id = entry_id
         self.entry_data = entry_data
-        self._runner: Optional[web.AppRunner] = None
-        self._site: Optional[web.TCPSite] = None
         self._ws: Optional[web.WebSocketResponse] = None
         self._pending_commands = []
         self._message_id = 0
-        self._port = 8124
         self._active = False
         self._keys_version = 0
         self._synced_keys_version = 0
 
-    async def start(self) -> None:
-        """Start WebSocket server."""
-        app = web.Application()
-        app.router.add_get(f"/api/webhook/{self.entry_id}", self._websocket_handler)
+    @property
+    def active(self) -> bool:
+        return self._active
 
-        self._runner = web.AppRunner(app)
-        await self._runner.setup()
-        self._site = web.TCPSite(self._runner, "0.0.0.0", self._port)
-        await self._site.start()
-        _LOGGER.info(
-            "WebSocket server started on port %s for entry %s",
-            self._port,
-            self.entry_id,
-        )
+    @property
+    def ws(self) -> Optional[web.WebSocketResponse]:
+        return self._ws
 
-    async def stop(self) -> None:
-        """Stop WebSocket server."""
-        if self._ws and not self._ws.closed:
-            try:
-                await self._ws.close()
-            except Exception:
-                pass
-        if self._runner:
-            await self._runner.cleanup()
-        self._ws = None
-        self._active = False
-        _LOGGER.info("WebSocket server stopped for entry %s", self.entry_id)
-
-    async def _websocket_handler(self, request: web.Request) -> web.WebSocketResponse:
-        """Handle WebSocket connection."""
+    async def handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
+        """Handle WebSocket connection for this entry."""
         ws = web.WebSocketResponse(heartbeat=30)
         await ws.prepare(request)
 
         self._ws = ws
-        _LOGGER.info("Controller connected via WebSocket to %s", request.path)
+        _LOGGER.info("Controller connected via WebSocket to %s (entry %s)", request.path, self.entry_id)
         self._active = True
 
         try:
@@ -75,23 +53,23 @@ class IronLogicWebSocketServer:
                 if msg.type == WSMsgType.TEXT:
                     try:
                         data = json.loads(msg.data)
-                        _LOGGER.debug("WebSocket received: %s", data)
+                        _LOGGER.debug("WebSocket received for %s: %s", self.entry_id, data)
                         response = await self._process_message(data)
                         if response and not ws.closed:
                             try:
                                 await ws.send_str(json.dumps(response))
                             except Exception as err:
-                                _LOGGER.debug("Failed to send response: %s", err)
+                                _LOGGER.debug("Failed to send response for %s: %s", self.entry_id, err)
                                 break
                     except json.JSONDecodeError:
-                        _LOGGER.error("Failed to decode JSON: %s", msg.data)
+                        _LOGGER.error("Failed to decode JSON for %s: %s", self.entry_id, msg.data)
                 elif msg.type == WSMsgType.ERROR:
-                    _LOGGER.error("WebSocket error: %s", ws.exception())
+                    _LOGGER.error("WebSocket error for %s: %s", self.entry_id, ws.exception())
                 elif msg.type == WSMsgType.CLOSE:
-                    _LOGGER.info("WebSocket connection closed by controller")
+                    _LOGGER.info("WebSocket connection closed by controller for %s", self.entry_id)
                     break
         except Exception as err:
-            _LOGGER.debug("WebSocket handler error: %s", err)
+            _LOGGER.debug("WebSocket handler error for %s: %s", self.entry_id, err)
         finally:
             self._ws = None
             self._active = False
@@ -100,6 +78,8 @@ class IronLogicWebSocketServer:
 
     async def _process_message(self, data: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Process incoming WebSocket message and return response."""
+        from .const import CONF_SN
+
         messages = data.get("messages", [])
         global_sn = data.get(CONF_SN)
         global_type = data.get("type")
@@ -159,7 +139,7 @@ class IronLogicWebSocketServer:
                         cmd["id"] = self._message_id
                     commands.extend(sync_cmds)
                     self._synced_keys_version = self._keys_version
-                    _LOGGER.info("Keys out of sync, sending %d sync commands", len(sync_cmds))
+                    _LOGGER.info("Keys out of sync for %s, sending %d sync commands", self.entry_id, len(sync_cmds))
 
                 if commands:
                     return {
@@ -168,7 +148,7 @@ class IronLogicWebSocketServer:
                         "messages": commands,
                     }
             else:
-                _LOGGER.debug("Unhandled operation: %s", operation)
+                _LOGGER.debug("Unhandled operation for %s: %s", self.entry_id, operation)
 
         all_responses = responses + deferred_commands
 
@@ -187,7 +167,7 @@ class IronLogicWebSocketServer:
     def increment_keys_version(self) -> None:
         """Increment keys version to trigger re-sync."""
         self._keys_version += 1
-        _LOGGER.debug("Keys version incremented to %d", self._keys_version)
+        _LOGGER.debug("Keys version incremented to %d for %s", self._keys_version, self.entry_id)
 
     def _build_sync_commands(self, start_id: int) -> list:
         """Build commands to sync allowed keys to controller."""
@@ -203,7 +183,7 @@ class IronLogicWebSocketServer:
         sn = message.get("sn") or global_sn or "unknown"
         controller_type = message.get("type") or global_type or "unknown"
         _LOGGER.info(
-            "Controller %s (%s) powered on via WebSocket", sn, controller_type
+            "Controller %s (%s) powered on via WebSocket for entry %s", sn, controller_type, self.entry_id
         )
 
         model = get_model_from_type(controller_type)
@@ -238,7 +218,7 @@ class IronLogicWebSocketServer:
                 self.hass.config_entries.async_update_entry(entry, title=new_name)
 
         self._keys_version += 1
-        self._synced_keys_version = self._keys_version
+        _LOGGER.debug("Keys version incremented to %d after power_on for %s, will re-sync on next ping", self._keys_version, self.entry_id)
 
     async def _handle_events(self, message: dict) -> Optional[dict]:
         """Handle events message."""
@@ -272,7 +252,7 @@ class IronLogicWebSocketServer:
 
             event_code = event.get("event")
             key_id = event.get("card")
-            _LOGGER.debug("Event code=%s, key=%s", event_code, key_id)
+            _LOGGER.debug("Event code=%s, key=%s for %s", event_code, key_id, self.entry_id)
 
             key_name = None
             raw_keys = self.entry_data.get("keys", [])
@@ -376,7 +356,7 @@ class IronLogicWebSocketServer:
 
         cards = message.get("cards", [])
         _LOGGER.info(
-            "Received %d keys from controller via WebSocket", len(cards)
+            "Received %d keys from controller via WebSocket for %s", len(cards), self.entry_id
         )
 
         keys = []
@@ -426,13 +406,13 @@ class IronLogicWebSocketServer:
                     "messages": [command],
                 }
                 await self._ws.send_str(json.dumps(response))
-                _LOGGER.debug("Sent: %s", response)
+                _LOGGER.debug("Sent to %s: %s", self.entry_id, response)
                 return True
             except Exception as e:
-                _LOGGER.error("Failed to send command: %s", e)
+                _LOGGER.error("Failed to send command for %s: %s", self.entry_id, e)
                 return False
         else:
-            _LOGGER.warning("WebSocket not connected, cannot send command")
+            _LOGGER.warning("WebSocket not connected for %s, cannot send command", self.entry_id)
             return False
 
     async def get_pending_commands(self) -> list:
@@ -440,3 +420,86 @@ class IronLogicWebSocketServer:
         commands = self._pending_commands.copy()
         self._pending_commands.clear()
         return commands
+
+
+class IronLogicWebSocketServer:
+    """Shared WebSocket server for all IronLogic controller entries."""
+
+    _instance: Optional["IronLogicWebSocketServer"] = None
+
+    def __init__(self, hass, port: int = DEFAULT_WS_PORT) -> None:
+        """Initialize shared WebSocket server."""
+        self.hass = hass
+        self._port = port
+        self._runner: Optional[web.AppRunner] = None
+        self._site: Optional[web.TCPSite] = None
+        self._handlers: dict[str, IronLogicWebSocketHandler] = {}
+        self._started = False
+
+    @classmethod
+    def get_instance(cls, hass, port: int = DEFAULT_WS_PORT) -> "IronLogicWebSocketServer":
+        """Get or create singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls(hass, port)
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """Reset singleton (for testing/reload)."""
+        cls._instance = None
+
+    def register_handler(self, entry_id: str, entry_data: dict[str, Any]) -> IronLogicWebSocketHandler:
+        """Register a handler for an entry."""
+        handler = IronLogicWebSocketHandler(self.hass, entry_id, entry_data)
+        self._handlers[entry_id] = handler
+        if self._started and self._runner:
+            self._runner.app.router.add_get(
+                f"/api/webhook/{entry_id}", handler.handle_websocket
+            )
+        return handler
+
+    def unregister_handler(self, entry_id: str) -> None:
+        """Unregister handler for an entry."""
+        if entry_id in self._handlers:
+            del self._handlers[entry_id]
+
+    async def start(self) -> None:
+        """Start shared WebSocket server."""
+        if self._started:
+            return
+
+        app = web.Application()
+        for entry_id, handler in self._handlers.items():
+            app.router.add_get(f"/api/webhook/{entry_id}", handler.handle_websocket)
+
+        self._runner = web.AppRunner(app)
+        await self._runner.setup()
+        self._site = web.TCPSite(self._runner, "0.0.0.0", self._port)
+        await self._site.start()
+        self._started = True
+        _LOGGER.info("Shared WebSocket server started on port %s", self._port)
+
+    async def stop(self) -> None:
+        """Stop shared WebSocket server."""
+        if not self._started:
+            return
+
+        for handler in self._handlers.values():
+            if handler.ws and not handler.ws.closed:
+                try:
+                    await handler.ws.close()
+                except Exception:
+                    pass
+            handler._active = False
+            handler._ws = None
+
+        if self._runner:
+            await self._runner.cleanup()
+        self._runner = None
+        self._site = None
+        self._started = False
+        _LOGGER.info("Shared WebSocket server stopped")
+
+    def get_handler(self, entry_id: str) -> Optional[IronLogicWebSocketHandler]:
+        """Get handler for entry."""
+        return self._handlers.get(entry_id)

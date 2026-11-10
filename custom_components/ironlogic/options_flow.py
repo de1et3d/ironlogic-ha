@@ -321,10 +321,10 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
 
         await self._send_command_to_controller(
             {
-                "operation": "add_cards",
-                "cards": [
+                "operation": "add_keys",
+                "keys": [
                     {
-                        "card": key_number,
+                        "key": key_number,
                         "flags": flags,
                         "tz": 255,
                     }
@@ -370,7 +370,7 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
 
         await self._send_command_to_controller(
             {
-                "operation": "del_cards",
-                "cards": [{"card": key_number}],
+                "operation": "del_keys",
+                "keys": [{"key": key_number}],
             }
         )
