@@ -8,9 +8,9 @@ add_key:
   fields:
     key_number:
       name: Key number
-      description: Key number in hex format (e.g., 00B5009EC1A8)
+      description: Key number in hex format. Last 6 characters are enough — leading zeros are added automatically (e.g., 386753 becomes 000000386753).
       required: true
-      example: "00B5009EC1A8"
+      example: "386753"
       selector:
         text:
     name:
@@ -21,7 +21,7 @@ add_key:
         text:
     key_type:
       name: Key type
-      description: Type of key (normal, blocking)
+      description: Type of key. Master keys are not supported by Web-JSON and are stored in Home Assistant only — program them into the controller via an iButton reader.
       required: false
       default: "normal"
       selector:
@@ -29,6 +29,7 @@ add_key:
           options:
             - "normal"
             - "blocking"
+            - "master"
 
 remove_key:
   name: Remove key

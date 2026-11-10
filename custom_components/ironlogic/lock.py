@@ -10,7 +10,7 @@ from typing import Any
 from homeassistant.components.lock import LockEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import ComponentID, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -19,6 +19,7 @@ from .const import (
     DOMAIN,
     CONNECTION_TYPE_WEBSOCKET,
 )
+from .keys import normalize_key_number, build_key_card
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ class IronLogicDoorLock(LockEntity):
         self._entry = entry
         self._data = data
         self._api = api
-        self._attr_unique_id = f"{entry.entry_id}_lock"
+        self._attr_unique_id = ComponentID(entry.entry_id, "lock").unique_id
         self._attr_is_locked = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
@@ -186,6 +187,7 @@ class IronLogicDoorLock(LockEntity):
         self, key_number: str, name: str = "", key_type: str = "normal"
     ):
         """Add a key to the controller."""
+        key_number = normalize_key_number(key_number)
         flags = 8 if key_type == "blocking" else 0
 
         if "keys" not in self._data:
@@ -205,13 +207,19 @@ class IronLogicDoorLock(LockEntity):
         self._pending_commands.append(
             {
                 "operation": "add_keys",
-                "keys": [{"key": key_number, "flags": flags, "tz": 255}],
+                "keys": [build_key_card(key_data)],
             }
         )
+        
+        ws_client = self._data.get("ws_client")
+        if ws_client:
+            ws_client.increment_keys_version()
+        
         _LOGGER.info("Key %s (%s) added to queue", key_number, name)
 
     async def async_remove_key(self, key_number: str):
         """Remove a key from the controller."""
+        key_number = normalize_key_number(key_number)
         if "keys" in self._data:
             self._data["keys"] = [
                 k for k in self._data["keys"] if k.get("key_number") != key_number
@@ -222,6 +230,11 @@ class IronLogicDoorLock(LockEntity):
         self._pending_commands.append(
             {"operation": "del_keys", "keys": [{"key": key_number}]}
         )
+        
+        ws_client = self._data.get("ws_client")
+        if ws_client:
+            ws_client.increment_keys_version()
+        
         _LOGGER.info("Key %s removal queued", key_number)
 
     async def async_clear_all_keys(self):
@@ -232,6 +245,11 @@ class IronLogicDoorLock(LockEntity):
                 await self._data["keys_store"].async_save({"keys": []})
 
         self._pending_commands.append({"operation": "clear_keys"})
+        
+        ws_client = self._data.get("ws_client")
+        if ws_client:
+            ws_client.increment_keys_version()
+        
         _LOGGER.info("Clear all keys queued")
 
     async def async_export_keys(self, file_path: str):

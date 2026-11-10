@@ -9,7 +9,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -17,7 +17,16 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const import DOMAIN, DEFAULT_POLL_INTERVAL
+from .const import (
+    DOMAIN,
+    DEFAULT_POLL_INTERVAL,
+    EVENT_DOOR_OPENED,
+    EVENT_DOOR_OPENED_EXIT,
+    EVENT_DOOR_TAMPERED,
+    EVENT_DOOR_TAMPERED_EXIT,
+    EVENT_DOOR_CLOSED,
+    EVENT_DOOR_CLOSED_EXIT,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,7 +80,7 @@ class IronLogicAvailabilitySensor(CoordinatorEntity, BinarySensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._data = data
-        self._attr_unique_id = f"{entry.entry_id}_availability"
+        self._attr_unique_id = ComponentID(entry.entry_id, "availability").unique_id
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -111,7 +120,7 @@ class IronLogicDoorSensor(BinarySensorEntity):
     def __init__(self, entry: ConfigEntry, data: dict) -> None:
         self._entry = entry
         self._data = data
-        self._attr_unique_id = f"{entry.entry_id}_door"
+        self._attr_unique_id = ComponentID(entry.entry_id, "door").unique_id
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -162,9 +171,9 @@ class IronLogicDoorSensor(BinarySensorEntity):
             return
             
         event_code = event.data.get("event_code")
-        if event_code in (0x20, 0x21, 0x0C, 0x0D):
+        if event_code in (EVENT_DOOR_OPENED, EVENT_DOOR_OPENED_EXIT, EVENT_DOOR_TAMPERED, EVENT_DOOR_TAMPERED_EXIT):
             self.update_state(True)
-        elif event_code in (0x22, 0x23):
+        elif event_code in (EVENT_DOOR_CLOSED, EVENT_DOOR_CLOSED_EXIT):
             self.update_state(False)
 
     def update_state(self, is_open: bool) -> None:

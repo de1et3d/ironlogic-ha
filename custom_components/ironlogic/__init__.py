@@ -18,6 +18,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     CONF_AUTH_KEY,
     CONF_CONNECTION_TYPE,
+    CONF_SN,
+    CONF_MODEL,
     CONNECTION_TYPE_HTTP,
     CONNECTION_TYPE_WEBSOCKET,
     DOMAIN,
@@ -38,6 +40,7 @@ from .const import (
     DOOR_OPEN_EVENTS,
     DOOR_CLOSED_EVENTS,
 )
+from .keys import is_key_allowed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,8 +118,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     use_door_sensor = entry.data.get("use_door_sensor", False)
     poll_interval = entry.data.get("poll_interval", DEFAULT_POLL_INTERVAL)
-    sn = entry.data.get("sn", None)
-    model = entry.data.get("model", "IP Controller")
+    sn = entry.data.get(CONF_SN, None)
+    model = entry.data.get(CONF_MODEL, "IP Controller")
 
     async def async_update_availability():
         try:
@@ -146,8 +149,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "availability_coordinator": availability_coordinator,
         "use_door_sensor": use_door_sensor,
         "poll_interval": poll_interval,
-        "sn": sn,
-        "model": model,
+        CONF_SN: sn,
+        CONF_MODEL: model,
         "door_sensor_entity": None,
     }
     hass.data[DOMAIN][entry.entry_id] = entry_data
@@ -214,7 +217,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_update_entry_data(
-    hass: HomeAssistant, entry_id: str, **kwargs
+    hass: HomeAssistant, entry_id: str, **kwargs: Any
 ) -> None:
     """Update entry data without full reload (for controls)."""
     entry = hass.config_entries.async_get_entry(entry_id)
@@ -234,14 +237,14 @@ class IronLogicWebhookView(HomeAssistantView):
 
     def __init__(
         self, hass: HomeAssistant, entry_id: str, entry_data: dict[str, Any]
-    ):
+    ) -> None:
         self.hass = hass
         self.entry_id = entry_id
         self.entry_data = entry_data
         self.url = f"/api/webhook/{entry_id}"
         self.name = f"api:webhook:{entry_id}"
 
-    async def get(self, request):
+    async def get(self, request: web.Request) -> web.Response:
         response = {
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "interval": 10,
@@ -249,7 +252,7 @@ class IronLogicWebhookView(HomeAssistantView):
         }
         return self._json_response(response)
 
-    async def post(self, request):
+    async def post(self, request: web.Request) -> web.Response:
         try:
             data = await request.json()
             _LOGGER.debug("Received data from controller: %s", data)
@@ -268,7 +271,7 @@ class IronLogicWebhookView(HomeAssistantView):
         messages = data.get("messages", [])
         responses = []
 
-        global_sn = data.get("sn")
+        global_sn = data.get(CONF_SN)
         global_type = data.get("type")
 
         for message in messages:
@@ -312,17 +315,7 @@ class IronLogicWebhookView(HomeAssistantView):
 
     def _is_key_allowed(self, key_id: str) -> int:
         """Check if key is allowed."""
-        if not key_id:
-            return 0
-        for key in self.entry_data.get("keys", []):
-            if isinstance(key, str):
-                try:
-                    key = json.loads(key)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            if isinstance(key, dict) and key.get("key_number") == key_id:
-                return 1
-        return 0
+        return is_key_allowed(key_id, self.entry_data.get("keys", []))
 
     async def _handle_check_access(
         self, msg_id: int, message: dict[str, Any]
@@ -357,24 +350,24 @@ class IronLogicWebhookView(HomeAssistantView):
 
         model = get_model_from_type(controller_type)
 
-        current_sn = self.entry_data.get("sn")
-        current_model = self.entry_data.get("model")
+        current_sn = self.entry_data.get(CONF_SN)
+        current_model = self.entry_data.get(CONF_MODEL)
         need_update = False
         need_sn_event = False
 
         if sn != "unknown" and current_sn != sn:
-            self.entry_data["sn"] = sn
+            self.entry_data[CONF_SN] = sn
             need_update = True
             need_sn_event = True
 
         if current_model != model:
-            self.entry_data["model"] = model
+            self.entry_data[CONF_MODEL] = model
             need_update = True
 
         if need_update:
             entry = self.hass.config_entries.async_get_entry(self.entry_id)
             if entry:
-                new_data = {**entry.data, "sn": sn, "model": model}
+                new_data = {**entry.data, CONF_SN: sn, CONF_MODEL: model}
                 self.hass.config_entries.async_update_entry(
                     entry, data=new_data
                 )
@@ -398,7 +391,7 @@ class IronLogicWebhookView(HomeAssistantView):
                 )
 
         if sn != "unknown" and (
-            need_sn_event or self.entry_data.get("sn") == sn
+            need_sn_event or self.entry_data.get(CONF_SN) == sn
         ):
             self.hass.bus.async_fire(f"{DOMAIN}_sn_updated", {"sn": sn})
 

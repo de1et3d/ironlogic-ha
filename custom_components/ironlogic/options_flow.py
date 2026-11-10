@@ -13,25 +13,9 @@ from .const import (
     CONNECTION_TYPE_HTTP,
     CONNECTION_TYPE_WEBSOCKET,
 )
+from .keys import normalize_key_number, short_key_number
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _normalize_key_number(value: str) -> str:
-    """Normalize user-entered key number to 12 hex characters."""
-    value = value.strip().upper().replace(" ", "")
-    if not value:
-        return ""
-    if len(value) <= 12:
-        return value.zfill(12)
-    return value[-12:]
-
-
-def _short_key_number(value: str) -> str:
-    """Return short display form of a key number (last 6 characters)."""
-    if not value:
-        return ""
-    return value[-6:]
 
 
 class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
@@ -160,7 +144,7 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
 
         if user_input is not None:
             raw = (user_input.get("key_number") or "").strip()
-            key_number = _normalize_key_number(raw)
+            key_number = normalize_key_number(raw)
             if not key_number:
                 errors["base"] = "key_number_required"
             else:
@@ -198,7 +182,7 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             if not key_number:
                 errors["base"] = "key_number_required"
             else:
-                key_number = _normalize_key_number(key_number)
+                key_number = normalize_key_number(key_number)
                 await self._remove_allowed_key(key_number)
                 self.keys = self.data.get("keys", [])
                 self.hass.bus.async_fire(
@@ -210,7 +194,7 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         choices = {}
         for k in keys:
             choices[k["key_number"]] = (
-                f"{_short_key_number(k['key_number'])} — "
+                f"{short_key_number(k['key_number'])} — "
                 f"{k.get('name') or 'unnamed'} "
                 f"({k.get('type', 'normal')})"
             )
@@ -258,7 +242,7 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         lines = []
         for i, key in enumerate(keys, 1):
             name = key.get("name") or "unnamed"
-            key_num = _short_key_number(key.get("key_number", ""))
+            key_num = short_key_number(key.get("key_number", ""))
             key_type = key.get("type", "normal")
             lines.append(f"{i}. {key_num} - {name} ({key_type})")
 

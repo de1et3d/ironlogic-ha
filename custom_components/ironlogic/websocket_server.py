@@ -8,6 +8,8 @@ from datetime import datetime
 
 from aiohttp import web, WSMsgType
 
+from .keys import is_key_allowed, build_sync_commands
+
 _LOGGER = logging.getLogger(__name__)
 
 SYNC_BATCH_SIZE = 50
@@ -28,6 +30,8 @@ class IronLogicWebSocketServer:
         self._message_id = 0
         self._port = 8124
         self._active = False
+        self._keys_version = 0
+        self._synced_keys_version = 0
 
     async def start(self) -> None:
         """Start WebSocket server."""
@@ -97,7 +101,7 @@ class IronLogicWebSocketServer:
     async def _process_message(self, data: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Process incoming WebSocket message and return response."""
         messages = data.get("messages", [])
-        global_sn = data.get("sn")
+        global_sn = data.get(CONF_SN)
         global_type = data.get("type")
 
         responses = []
@@ -138,12 +142,25 @@ class IronLogicWebSocketServer:
                     "operation": "check_access",
                     "granted": granted,
                 })
+
+                if self._keys_version > self._synced_keys_version:
+                    _LOGGER.debug("Keys out of sync detected during check_access, will re-sync on next ping")
             elif operation == "events":
                 response = await self._handle_events(message)
                 if response:
                     responses.append(response)
             elif operation == "ping":
                 commands = await self._get_pending_commands()
+
+                if self._keys_version > self._synced_keys_version:
+                    sync_cmds = self._build_sync_commands(self._message_id + 1)
+                    for cmd in sync_cmds:
+                        self._message_id += 1
+                        cmd["id"] = self._message_id
+                    commands.extend(sync_cmds)
+                    self._synced_keys_version = self._keys_version
+                    _LOGGER.info("Keys out of sync, sending %d sync commands", len(sync_cmds))
+
                 if commands:
                     return {
                         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -165,65 +182,16 @@ class IronLogicWebSocketServer:
 
     def _is_key_allowed(self, key_id: str) -> int:
         """Check if key is allowed."""
-        if not key_id:
-            return 0
-        for key in self.entry_data.get("keys", []):
-            if isinstance(key, str):
-                try:
-                    key = json.loads(key)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            if isinstance(key, dict) and key.get("key_number") == key_id:
-                return 1
-        return 0
+        return is_key_allowed(key_id, self.entry_data.get("keys", []))
+
+    def increment_keys_version(self) -> None:
+        """Increment keys version to trigger re-sync."""
+        self._keys_version += 1
+        _LOGGER.debug("Keys version incremented to %d", self._keys_version)
 
     def _build_sync_commands(self, start_id: int) -> list:
         """Build commands to sync allowed keys to controller."""
-        keys = self.entry_data.get("keys", [])
-        if not keys:
-            return []
-
-        normalized = []
-        for k in keys:
-            if isinstance(k, str):
-                try:
-                    k = json.loads(k)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            if isinstance(k, dict) and k.get("key_number"):
-                normalized.append(k)
-
-        if not normalized:
-            return []
-
-        commands = [{"id": start_id, "operation": "clear_cards"}]
-        current_id = start_id + 1
-
-        for i in range(0, len(normalized), SYNC_BATCH_SIZE):
-            batch = normalized[i:i + SYNC_BATCH_SIZE]
-            cards = []
-            for key in batch:
-                flags = key.get("flags", 0)
-                if key.get("type") == "blocking" and flags == 0:
-                    flags = 8
-                cards.append({
-                    "card": key["key_number"],
-                    "flags": flags,
-                    "tz": 255,
-                })
-            commands.append({
-                "id": current_id,
-                "operation": "add_cards",
-                "cards": cards,
-            })
-            current_id += 1
-
-        _LOGGER.info(
-            "Built sync commands: clear + %d batches (%d keys total)",
-            (len(normalized) + SYNC_BATCH_SIZE - 1) // SYNC_BATCH_SIZE,
-            len(normalized),
-        )
-        return commands
+        return build_sync_commands(self.entry_data.get("keys", []), start_id, SYNC_BATCH_SIZE)
 
     async def _handle_power_on(
         self, message: dict, global_sn: str, global_type: str
@@ -239,23 +207,23 @@ class IronLogicWebSocketServer:
         )
 
         model = get_model_from_type(controller_type)
-        current_sn = self.entry_data.get("sn")
-        current_model = self.entry_data.get("model")
+        current_sn = self.entry_data.get(CONF_SN)
+        current_model = self.entry_data.get(CONF_MODEL)
         need_update = False
 
         if sn != "unknown" and current_sn != sn:
-            self.entry_data["sn"] = sn
+            self.entry_data[CONF_SN] = sn
             need_update = True
             self.hass.bus.async_fire(f"{DOMAIN}_sn_updated", {"sn": sn})
 
         if current_model != model:
-            self.entry_data["model"] = model
+            self.entry_data[CONF_MODEL] = model
             need_update = True
 
         if need_update:
             entry = self.hass.config_entries.async_get_entry(self.entry_id)
             if entry:
-                new_data = {**entry.data, "sn": sn, "model": model}
+                new_data = {**entry.data, CONF_SN: sn, CONF_MODEL: model}
                 self.hass.config_entries.async_update_entry(entry, data=new_data)
 
             new_name = f"IronLogic {model} ({sn} @ {self.entry_data['host']})"
@@ -268,6 +236,9 @@ class IronLogicWebSocketServer:
 
             if entry:
                 self.hass.config_entries.async_update_entry(entry, title=new_name)
+
+        self._keys_version += 1
+        self._synced_keys_version = self._keys_version
 
     async def _handle_events(self, message: dict) -> Optional[dict]:
         """Handle events message."""
@@ -423,6 +394,8 @@ class IronLogicWebSocketServer:
         self.entry_data["keys"] = keys
         if self.entry_data.get("keys_store"):
             await self.entry_data["keys_store"].async_save({"keys": keys})
+
+        self._synced_keys_version = self._keys_version
 
         self.hass.bus.async_fire(f"{DOMAIN}_keys_updated", {"keys": keys})
 
