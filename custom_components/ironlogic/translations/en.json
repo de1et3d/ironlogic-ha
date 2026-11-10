@@ -99,7 +99,7 @@
         "title": "Add key",
         "description": "Current allowed keys:\n{keys_list}\n\nEnter the key details.\n\n**Note:** Master keys can only be added to the controller via an iButton reader using the master key programming procedure. When added here as 'master', the key is stored in Home Assistant only and will not be sent to the controller.",
         "data": {
-          "key_number": "Key number (hex)",
+          "key_number": "Key number (last 6 hex characters, leading zeros are added automatically)",
           "key_name": "Key name",
           "key_type": "Key type (normal, blocking, master)"
         }
@@ -130,7 +130,7 @@
         "name": "Door"
       },
       "controller_availability": {
-        "name": "Controller Availability"
+        "name": "Controller availability"
       }
     },
     "sensor": {

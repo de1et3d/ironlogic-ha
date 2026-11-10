@@ -128,7 +128,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     availability_coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=f"IronLogic Availability {host}",
+        name=f"IronLogic availability {host}",
         update_method=async_update_availability,
         update_interval=timedelta(seconds=poll_interval),
     )

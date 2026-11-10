@@ -119,33 +119,40 @@ class IronLogicLastEventSensor(SensorEntity):
         """Update state with current values."""
         if self._last_event_code is None:
             self._attr_native_value = "Waiting for events..."
-        else:
-            desc = self._get_event_description(self._last_event_code)
-            event_code = self._last_event_code
-            key = self._last_key
-            key_name = self._last_key_name
+            return
 
-            if event_code in (0x0C, 0x0D, 0x20, 0x21, 0x22, 0x23, 0x0E, 0x0F):
-                self._attr_native_value = desc
+        desc = self._get_event_description(self._last_event_code)
+        event_code = self._last_event_code
+        key = self._last_key
+        key_name = self._last_key_name
 
-            elif event_code in (0x02, 0x03, 0x06, 0x07):
-                if key and key != "000000000000":
-                    formatted = key[-8:] if len(key) > 8 else key
-                    self._attr_native_value = f"{desc}: {formatted}"
-                else:
-                    self._attr_native_value = desc
+        short = key[-6:] if key and len(key) > 6 else (key or "")
+        has_name = (
+            key_name
+            and key_name not in ("Unknown", "Unknown key", "unnamed")
+        )
 
-            elif event_code in (0x04, 0x05):
-                if key_name:
-                    self._attr_native_value = f"{desc}: {key_name}"
-                elif key and key != "000000000000":
-                    formatted = key[-8:] if len(key) > 8 else key
-                    self._attr_native_value = f"{desc}: {formatted}"
-                else:
-                    self._attr_native_value = desc
+        if event_code in (0x0C, 0x0D, 0x20, 0x21, 0x22, 0x23, 0x0E, 0x0F):
+            self._attr_native_value = desc
 
+        elif event_code in (0x02, 0x03, 0x06, 0x07):
+            if has_name:
+                self._attr_native_value = f"{desc}: {key_name}"
+            elif key and key != "000000000000":
+                self._attr_native_value = f"{desc}: {short}"
             else:
                 self._attr_native_value = desc
+
+        elif event_code in (0x04, 0x05):
+            if has_name:
+                self._attr_native_value = f"{desc}: {key_name}"
+            elif key and key != "000000000000":
+                self._attr_native_value = f"{desc}: {short}"
+            else:
+                self._attr_native_value = desc
+
+        else:
+            self._attr_native_value = desc
 
     @property
     def available(self) -> bool:
@@ -228,17 +235,18 @@ class IronLogicLastKeySensor(SensorEntity):
     def _format_key(
         self, key: str, key_name: str = None, event_code: int = None
     ) -> str:
-        """Format key."""
+        """Format key for display: name first, short number as fallback."""
         if event_code in (0x08, 0x09):
             return "Network"
 
         if event_code in (0x0C, 0x0D, 0x20, 0x21, 0x22, 0x23, 0x0E, 0x0F):
             return self._attr_native_value
 
-        if key and len(key) > 8:
-            formatted = key[-8:]
-        else:
-            formatted = key
+        short = key[-6:] if key and len(key) > 6 else (key or "")
+        has_name = (
+            key_name
+            and key_name not in ("Unknown", "Unknown key", "unnamed")
+        )
 
         if event_code in (0x02, 0x03, 0x06, 0x07):
             if key and key != "000000000000":
@@ -246,20 +254,22 @@ class IronLogicLastKeySensor(SensorEntity):
                     status = "not found"
                 else:
                     status = "denied"
-                return f"{formatted} ({status})"
+                if has_name:
+                    return f"{key_name} ({short}, {status})"
+                return f"{short} ({status})"
             return "Unknown key"
 
         if event_code in (0x04, 0x05):
-            if key_name and key_name not in ("Unknown", "Unknown key"):
-                return f"{key_name} ({formatted})"
-            elif key and key != "000000000000":
-                return f"{formatted} (granted)"
+            if has_name:
+                return f"{key_name} ({short})"
+            if key and key != "000000000000":
+                return f"{short} (granted)"
             return "No keys yet"
 
-        if key_name and key_name not in ("Unknown", "Unknown key"):
-            return f"{key_name} ({formatted})"
-        elif key and key != "000000000000":
-            return formatted
+        if has_name:
+            return f"{key_name} ({short})"
+        if key and key != "000000000000":
+            return short
         return "No keys yet"
 
     @property
@@ -406,7 +416,6 @@ class IronLogicAllowedKeysSensor(SensorEntity):
         normalized = []
         for k in keys:
             if isinstance(k, str):
-                import json
                 try:
                     k = json.loads(k)
                 except (json.JSONDecodeError, TypeError):
@@ -418,18 +427,21 @@ class IronLogicAllowedKeysSensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
+        import json as _json
+
         keys = self._data.get("keys", [])
         normalized = []
         for k in keys:
             if isinstance(k, str):
-                import json
                 try:
-                    k = json.loads(k)
-                except (json.JSONDecodeError, TypeError):
+                    k = _json.loads(k)
+                except (_json.JSONDecodeError, TypeError):
                     continue
             if isinstance(k, dict):
+                full = k.get("key_number", "")
                 normalized.append({
-                    "key_number": k.get("key_number", ""),
+                    "key_number": full,
+                    "key_short": full[-6:] if len(full) > 6 else full,
                     "name": k.get("name", ""),
                     "type": k.get("type", "normal"),
                     "added_at": k.get("added_at"),
