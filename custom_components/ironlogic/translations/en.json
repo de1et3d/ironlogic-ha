@@ -113,7 +113,8 @@
       }
     },
     "error": {
-      "key_number_required": "Key number is required"
+      "key_number_required": "Key number is required",
+      "key_number_invalid_length": "Key number must be 12 hex characters or less"
     },
     "abort": {
       "no_options": "No configuration options available. Use device controls."

@@ -19,7 +19,7 @@ from .const import (
     DOMAIN,
     CONNECTION_TYPE_WEBSOCKET,
 )
-from .keys import normalize_key_number, build_key_card
+from .keys import normalize_key_number, build_key_payload
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -188,6 +188,9 @@ class IronLogicDoorLock(LockEntity):
     ):
         """Add a key to the controller."""
         key_number = normalize_key_number(key_number)
+        if not key_number:
+            _LOGGER.error("Invalid key number length (must be 12 hex characters or less)")
+            return
         flags = 8 if key_type == "blocking" else 0
 
         if "keys" not in self._data:
@@ -204,22 +207,25 @@ class IronLogicDoorLock(LockEntity):
         if self._data.get("keys_store"):
             await self._data["keys_store"].async_save({"keys": self._data["keys"]})
 
-        self._pending_commands.append(
-            {
-                "operation": "add_keys",
-                "keys": [build_key_card(key_data)],
-            }
-        )
-        
+        if key_type != "master":
+            payload = build_key_payload(key_data)
+            if payload:
+                self._pending_commands.append(
+                    {"operation": "add_cards", "cards": [payload]}
+                )
+
         ws_client = self._data.get("ws_client")
         if ws_client:
             ws_client.increment_keys_version()
-        
+
         _LOGGER.info("Key %s (%s) added to queue", key_number, name)
 
     async def async_remove_key(self, key_number: str):
         """Remove a key from the controller."""
         key_number = normalize_key_number(key_number)
+        if not key_number:
+            _LOGGER.error("Invalid key number length")
+            return
         if "keys" in self._data:
             self._data["keys"] = [
                 k for k in self._data["keys"] if k.get("key_number") != key_number
@@ -228,13 +234,13 @@ class IronLogicDoorLock(LockEntity):
                 await self._data["keys_store"].async_save({"keys": self._data["keys"]})
 
         self._pending_commands.append(
-            {"operation": "del_keys", "keys": [{"key": key_number}]}
+            {"operation": "del_cards", "cards": [{"card": key_number}]}
         )
-        
+
         ws_client = self._data.get("ws_client")
         if ws_client:
             ws_client.increment_keys_version()
-        
+
         _LOGGER.info("Key %s removal queued", key_number)
 
     async def async_clear_all_keys(self):
@@ -244,12 +250,12 @@ class IronLogicDoorLock(LockEntity):
             if self._data.get("keys_store"):
                 await self._data["keys_store"].async_save({"keys": []})
 
-        self._pending_commands.append({"operation": "clear_keys"})
-        
+        self._pending_commands.append({"operation": "clear_cards"})
+
         ws_client = self._data.get("ws_client")
         if ws_client:
             ws_client.increment_keys_version()
-        
+
         _LOGGER.info("Clear all keys queued")
 
     async def async_export_keys(self, file_path: str):
@@ -261,12 +267,12 @@ class IronLogicDoorLock(LockEntity):
         try:
             path = Path(file_path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             with open(path, "w", newline="", encoding="utf-8") as csvfile:
                 fieldnames = ["key_number", "name", "type", "added_at", "last_used"]
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
-                
+
                 for key in self._data["keys"]:
                     row = {
                         "key_number": key.get("key_number", ""),
@@ -276,14 +282,14 @@ class IronLogicDoorLock(LockEntity):
                         "last_used": key.get("last_used", ""),
                     }
                     writer.writerow(row)
-            
+
             _LOGGER.info("Exported %d keys to %s", len(self._data["keys"]), file_path)
-            
+
             self.hass.bus.async_fire(
                 f"{DOMAIN}_keys_exported",
                 {"file_path": file_path, "count": len(self._data["keys"])}
             )
-            
+
         except Exception as e:
             _LOGGER.error("Failed to export keys: %s", e)
 
@@ -299,10 +305,14 @@ class IronLogicDoorLock(LockEntity):
             with open(path, "r", encoding="utf-8") as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
-                    key_number = row.get("key_number", "").strip()
-                    if not key_number:
+                    raw = row.get("key_number", "").strip()
+                    if not raw:
                         continue
-                    
+                    key_number = normalize_key_number(raw)
+                    if not key_number:
+                        _LOGGER.warning("Skipping invalid key number: %s", raw)
+                        continue
+
                     key_data = {
                         "key_number": key_number,
                         "name": row.get("name", "").strip(),
@@ -311,53 +321,52 @@ class IronLogicDoorLock(LockEntity):
                         "added_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                         "last_used": row.get("last_used", ""),
                     }
-                    
+
                     if key_data["type"] not in ["normal", "blocking"]:
                         key_data["type"] = "normal"
                         key_data["flags"] = 0
-                    
+
                     imported_keys.append(key_data)
-            
+
             if not imported_keys:
                 _LOGGER.warning("No valid keys found in CSV")
                 return
 
             if "keys" not in self._data:
                 self._data["keys"] = []
-            
+
             existing_numbers = {k.get("key_number") for k in self._data["keys"]}
             new_keys = [k for k in imported_keys if k["key_number"] not in existing_numbers]
-            
+
             if not new_keys:
                 _LOGGER.info("All keys from CSV already exist")
                 return
-            
+
             self._data["keys"].extend(new_keys)
             if self._data.get("keys_store"):
                 await self._data["keys_store"].async_save({"keys": self._data["keys"]})
-            
+
             for key in new_keys:
-                self._pending_commands.append(
-                    {
-                        "operation": "add_keys",
-                        "keys": [{"key": key["key_number"], "flags": key["flags"], "tz": 255}],
-                    }
-                )
-            
+                payload = build_key_payload(key)
+                if payload:
+                    self._pending_commands.append(
+                        {"operation": "add_cards", "cards": [payload]}
+                    )
+
             _LOGGER.info("Imported %d new keys from %s", len(new_keys), file_path)
-            
+
             self.hass.bus.async_fire(
                 f"{DOMAIN}_keys_imported",
                 {"file_path": file_path, "count": len(new_keys)}
             )
-            
+
         except Exception as e:
             _LOGGER.error("Failed to import keys: %s", e)
 
     async def async_sync_keys(self):
         """Request keys sync from controller."""
         connection_type = self._data.get("connection_type")
-        
+
         if connection_type == CONNECTION_TYPE_WEBSOCKET:
             ws_client = self._data.get("ws_client")
             if ws_client:

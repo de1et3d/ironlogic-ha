@@ -143,10 +143,12 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
-            raw = (user_input.get("key_number") or "").strip()
+            raw = (user_input.get("key_number") or "").strip().upper().replace(" ", "")
             key_number = normalize_key_number(raw)
-            if not key_number:
+            if not raw:
                 errors["base"] = "key_number_required"
+            elif not key_number:
+                errors["base"] = "key_number_invalid_length"
             else:
                 name = (user_input.get("key_name") or "").strip()
                 key_type = user_input.get("key_type", "normal")
@@ -183,12 +185,15 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
                 errors["base"] = "key_number_required"
             else:
                 key_number = normalize_key_number(key_number)
-                await self._remove_allowed_key(key_number)
-                self.keys = self.data.get("keys", [])
-                self.hass.bus.async_fire(
-                    f"{DOMAIN}_keys_updated", {"keys": self.keys}
-                )
-                return await self.async_step_allowed_keys()
+                if not key_number:
+                    errors["base"] = "key_number_invalid_length"
+                else:
+                    await self._remove_allowed_key(key_number)
+                    self.keys = self.data.get("keys", [])
+                    self.hass.bus.async_fire(
+                        f"{DOMAIN}_keys_updated", {"keys": self.keys}
+                    )
+                    return await self.async_step_allowed_keys()
 
         keys = self._normalized_keys()
         choices = {}
@@ -321,10 +326,10 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
 
         await self._send_command_to_controller(
             {
-                "operation": "add_keys",
-                "keys": [
+                "operation": "add_cards",
+                "cards": [
                     {
-                        "key": key_number,
+                        "card": key_number,
                         "flags": flags,
                         "tz": 255,
                     }
@@ -370,7 +375,7 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
 
         await self._send_command_to_controller(
             {
-                "operation": "del_keys",
-                "keys": [{"key": key_number}],
+                "operation": "del_cards",
+                "cards": [{"card": key_number}],
             }
         )
