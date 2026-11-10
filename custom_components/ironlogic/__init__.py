@@ -158,12 +158,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if connection_type == CONNECTION_TYPE_WEBSOCKET:
         from .websocket_server import IronLogicWebSocketServer
 
-        # Get or create shared WebSocket server
         ws_server = IronLogicWebSocketServer.get_instance(hass)
-        # Register handler for this entry
         handler = ws_server.register_handler(entry.entry_id, entry_data)
         entry_data["ws_handler"] = handler
-        # Start server if not already started
         if not ws_server._started:
             await ws_server.start()
     else:
@@ -203,12 +200,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         data = hass.data[DOMAIN].get(entry.entry_id)
         if data:
-            # Unregister WebSocket handler
             if data.get("ws_handler"):
                 from .websocket_server import IronLogicWebSocketServer
                 ws_server = IronLogicWebSocketServer.get_instance(hass)
                 ws_server.unregister_handler(entry.entry_id)
-                # If no more handlers, stop the shared server
                 if not ws_server._handlers:
                     await ws_server.stop()
                     IronLogicWebSocketServer.reset_instance()

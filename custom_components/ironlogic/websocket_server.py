@@ -8,6 +8,7 @@ from datetime import datetime
 
 from aiohttp import web, WSMsgType
 
+from .const import CONF_SN, CONF_MODEL
 from .keys import is_key_allowed, build_sync_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,8 +79,6 @@ class IronLogicWebSocketHandler:
 
     async def _process_message(self, data: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Process incoming WebSocket message and return response."""
-        from .const import CONF_SN
-
         messages = data.get("messages", [])
         global_sn = data.get(CONF_SN)
         global_type = data.get("type")

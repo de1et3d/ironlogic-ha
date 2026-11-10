@@ -214,9 +214,9 @@ class IronLogicDoorLock(LockEntity):
                     {"operation": "add_cards", "cards": [payload]}
                 )
 
-        ws_client = self._data.get("ws_client")
-        if ws_client:
-            ws_client.increment_keys_version()
+        ws_handler = self._data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
 
         _LOGGER.info("Key %s (%s) added to queue", key_number, name)
 
@@ -237,9 +237,9 @@ class IronLogicDoorLock(LockEntity):
             {"operation": "del_cards", "cards": [{"card": key_number}]}
         )
 
-        ws_client = self._data.get("ws_client")
-        if ws_client:
-            ws_client.increment_keys_version()
+        ws_handler = self._data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
 
         _LOGGER.info("Key %s removal queued", key_number)
 
@@ -252,9 +252,9 @@ class IronLogicDoorLock(LockEntity):
 
         self._pending_commands.append({"operation": "clear_cards"})
 
-        ws_client = self._data.get("ws_client")
-        if ws_client:
-            ws_client.increment_keys_version()
+        ws_handler = self._data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
 
         _LOGGER.info("Clear all keys queued")
 
@@ -353,6 +353,10 @@ class IronLogicDoorLock(LockEntity):
                         {"operation": "add_cards", "cards": [payload]}
                     )
 
+            ws_handler = self._data.get("ws_handler")
+            if ws_handler:
+                ws_handler.increment_keys_version()
+
             _LOGGER.info("Imported %d new keys from %s", len(new_keys), file_path)
 
             self.hass.bus.async_fire(
@@ -368,11 +372,11 @@ class IronLogicDoorLock(LockEntity):
         connection_type = self._data.get("connection_type")
 
         if connection_type == CONNECTION_TYPE_WEBSOCKET:
-            ws_client = self._data.get("ws_client")
-            if ws_client:
-                await ws_client.send_command({"operation": "read_cards"})
+            ws_handler = self._data.get("ws_handler")
+            if ws_handler:
+                await ws_handler.send_command({"operation": "read_cards"})
                 _LOGGER.info("Keys sync requested via WebSocket")
             else:
-                _LOGGER.error("WebSocket client not available")
+                _LOGGER.error("WebSocket handler not available")
         else:
             _LOGGER.warning("Key sync is only supported in WebSocket mode. Please reconfigure the integration with WebSocket connection type.")

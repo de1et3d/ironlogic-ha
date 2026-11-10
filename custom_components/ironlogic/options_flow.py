@@ -254,17 +254,17 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         return "\n".join(lines) if lines else "No allowed keys"
 
     async def _send_command_to_controller(self, command: dict):
-        """Send command to controller via WebSocket server."""
-        ws_server = self.data.get("ws_server")
-        if not ws_server:
+        """Send command to controller via WebSocket handler."""
+        ws_handler = self.data.get("ws_handler")
+        if not ws_handler:
             _LOGGER.warning(
-                "WebSocket server not available, command not sent: %s",
+                "WebSocket handler not available, command not sent: %s",
                 command.get("operation"),
             )
             return False
 
         try:
-            result = await ws_server.send_command(command)
+            result = await ws_handler.send_command(command)
             if result:
                 _LOGGER.warning(
                     "Sent %s to controller", command.get("operation")
@@ -313,6 +313,10 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             await self.data["keys_store"].async_save({"keys": self.data["keys"]})
 
         _LOGGER.warning("Key %s (%s) added to allowed keys", key_number, name)
+
+        ws_handler = self.data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
 
         if key_type == "master":
             _LOGGER.warning(
@@ -364,6 +368,10 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             await self.data["keys_store"].async_save({"keys": new_keys})
 
         _LOGGER.warning("Key %s removed from allowed keys", key_number)
+
+        ws_handler = self.data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
 
         if key_type == "master":
             _LOGGER.warning(

@@ -1,5 +1,6 @@
 """Sensor platform for IronLogic."""
 
+import json
 import logging
 from typing import Any
 
@@ -427,15 +428,13 @@ class IronLogicAllowedKeysSensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
-        import json as _json
-
         keys = self._data.get("keys", [])
         normalized = []
         for k in keys:
             if isinstance(k, str):
                 try:
-                    k = _json.loads(k)
-                except (_json.JSONDecodeError, TypeError):
+                    k = json.loads(k)
+                except (json.JSONDecodeError, TypeError):
                     continue
             if isinstance(k, dict):
                 full = k.get("key_number", "")
