@@ -23,6 +23,60 @@ from .keys import build_key_payload, normalize_key_number
 
 _LOGGER = logging.getLogger(__name__)
 
+CSV_FIELDNAMES = ["key_number", "name", "type", "added_at", "last_used"]
+
+
+def _write_keys_csv(file_path: str, keys: list[dict[str, Any]]) -> int:
+    """Write keys to a CSV file (blocking, runs in executor)."""
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        for key in keys:
+            writer.writerow({
+                "key_number": key.get("key_number", ""),
+                "name": key.get("name", ""),
+                "type": key.get("type", "normal"),
+                "added_at": key.get("added_at", ""),
+                "last_used": key.get("last_used", ""),
+            })
+    return len(keys)
+
+
+def _read_keys_csv(file_path: str) -> list[dict[str, Any]]:
+    """Read keys from a CSV file (blocking, runs in executor)."""
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(file_path)
+
+    imported_keys: list[dict[str, Any]] = []
+    with open(path, "r", encoding="utf-8") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            raw = (row.get("key_number") or "").strip()
+            if not raw:
+                continue
+            key_number = normalize_key_number(raw)
+            if not key_number:
+                _LOGGER.warning("Skipping invalid key number: %s", raw)
+                continue
+
+            key_type = (row.get("type") or "normal").strip().lower()
+            if key_type not in ("normal", "blocking"):
+                key_type = "normal"
+
+            key_data = {
+                "key_number": key_number,
+                "name": (row.get("name") or "").strip(),
+                "type": key_type,
+                "flags": 8 if key_type == "blocking" else 0,
+                "added_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "last_used": (row.get("last_used") or "").strip(),
+            }
+            imported_keys.append(key_data)
+    return imported_keys
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -106,21 +160,21 @@ class IronLogicDoorLock(LockEntity):
         """Return if lock is available (controller must be reachable)."""
         return self._controller_available
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Subscribe to availability updates."""
         await super().async_added_to_hass()
         self._availability_sub = self.hass.bus.async_listen(
             f"{DOMAIN}_availability_updated", self._handle_availability_update
         )
 
-    async def async_will_remove_from_hass(self):
+    async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from availability updates."""
         if self._availability_sub:
             self._availability_sub()
         await super().async_will_remove_from_hass()
 
     @callback
-    def _handle_availability_update(self, event):
+    def _handle_availability_update(self, event) -> None:
         """Handle availability change."""
         available = event.data.get("available", False)
         if self._controller_available != available:
@@ -172,7 +226,7 @@ class IronLogicDoorLock(LockEntity):
             except asyncio.CancelledError:
                 _LOGGER.debug("Auto-lock task cancelled")
 
-        self._reset_lock_task = asyncio.create_task(reset_lock())  # type: ignore[assignment]
+        self._reset_lock_task = asyncio.create_task(reset_lock())
 
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock is not supported (momentary lock)."""
@@ -184,7 +238,7 @@ class IronLogicDoorLock(LockEntity):
 
     async def async_add_key(
         self, key_number: str, name: str = "", key_type: str = "normal"
-    ):
+    ) -> None:
         """Add a key to the controller."""
         key_number = normalize_key_number(key_number)
         if not key_number:
@@ -219,7 +273,7 @@ class IronLogicDoorLock(LockEntity):
 
         _LOGGER.info("Key %s (%s) added to queue", key_number, name)
 
-    async def async_remove_key(self, key_number: str):
+    async def async_remove_key(self, key_number: str) -> None:
         """Remove a key from the controller."""
         key_number = normalize_key_number(key_number)
         if not key_number:
@@ -242,7 +296,7 @@ class IronLogicDoorLock(LockEntity):
 
         _LOGGER.info("Key %s removal queued", key_number)
 
-    async def async_clear_all_keys(self):
+    async def async_clear_all_keys(self) -> None:
         """Clear all keys from the controller."""
         if "keys" in self._data:
             self._data["keys"] = []
@@ -257,116 +311,76 @@ class IronLogicDoorLock(LockEntity):
 
         _LOGGER.info("Clear all keys queued")
 
-    async def async_export_keys(self, file_path: str):
+    async def async_export_keys(self, file_path: str) -> None:
         """Export all keys to a CSV file."""
         if "keys" not in self._data or not self._data["keys"]:
             _LOGGER.warning("No keys to export")
             return
 
         try:
-            path = Path(file_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(path, "w", newline="", encoding="utf-8") as csvfile:
-                fieldnames = ["key_number", "name", "type", "added_at", "last_used"]
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-
-                for key in self._data["keys"]:
-                    row = {
-                        "key_number": key.get("key_number", ""),
-                        "name": key.get("name", ""),
-                        "type": key.get("type", "normal"),
-                        "added_at": key.get("added_at", ""),
-                        "last_used": key.get("last_used", ""),
-                    }
-                    writer.writerow(row)
-
-            _LOGGER.info("Exported %d keys to %s", len(self._data["keys"]), file_path)
-
+            count = await self.hass.async_add_executor_job(
+                _write_keys_csv, file_path, self._data["keys"]
+            )
+            _LOGGER.info("Exported %d keys to %s", count, file_path)
             self.hass.bus.async_fire(
                 f"{DOMAIN}_keys_exported",
-                {"file_path": file_path, "count": len(self._data["keys"])}
+                {"file_path": file_path, "count": count},
             )
-
-        except Exception as e:
+        except OSError as e:
             _LOGGER.error("Failed to export keys: %s", e)
 
-    async def async_import_keys(self, file_path: str):
+    async def async_import_keys(self, file_path: str) -> None:
         """Import keys from a CSV file."""
         try:
-            path = Path(file_path)
-            if not path.exists():
-                _LOGGER.error("File not found: %s", file_path)
-                return
-
-            imported_keys = []
-            with open(path, "r", encoding="utf-8") as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    raw = row.get("key_number", "").strip()
-                    if not raw:
-                        continue
-                    key_number = normalize_key_number(raw)
-                    if not key_number:
-                        _LOGGER.warning("Skipping invalid key number: %s", raw)
-                        continue
-
-                    key_data = {
-                        "key_number": key_number,
-                        "name": row.get("name", "").strip(),
-                        "type": row.get("type", "normal").strip().lower(),
-                        "flags": 8 if row.get("type", "normal").strip().lower() == "blocking" else 0,
-                        "added_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "last_used": row.get("last_used", ""),
-                    }
-
-                    if key_data["type"] not in ["normal", "blocking"]:
-                        key_data["type"] = "normal"
-                        key_data["flags"] = 0
-
-                    imported_keys.append(key_data)
-
-            if not imported_keys:
-                _LOGGER.warning("No valid keys found in CSV")
-                return
-
-            if "keys" not in self._data:
-                self._data["keys"] = []
-
-            existing_numbers = {k.get("key_number") for k in self._data["keys"]}
-            new_keys = [k for k in imported_keys if k["key_number"] not in existing_numbers]
-
-            if not new_keys:
-                _LOGGER.info("All keys from CSV already exist")
-                return
-
-            self._data["keys"].extend(new_keys)
-            if self._data.get("keys_store"):
-                await self._data["keys_store"].async_save({"keys": self._data["keys"]})
-
-            for key in new_keys:
-                payload = build_key_payload(key)
-                if payload:
-                    self._pending_commands.append(
-                        {"operation": "add_cards", "cards": [payload]}
-                    )
-
-            ws_handler = self._data.get("ws_handler")
-            if ws_handler:
-                ws_handler.increment_keys_version()
-
-            _LOGGER.info("Imported %d new keys from %s", len(new_keys), file_path)
-
-            self.hass.bus.async_fire(
-                f"{DOMAIN}_keys_imported",
-                {"file_path": file_path, "count": len(new_keys)}
+            imported_keys = await self.hass.async_add_executor_job(
+                _read_keys_csv, file_path
             )
+        except FileNotFoundError:
+            _LOGGER.error("File not found: %s", file_path)
+            return
+        except OSError as e:
+            _LOGGER.error("Failed to read CSV: %s", e)
+            return
 
-        except Exception as e:
-            _LOGGER.error("Failed to import keys: %s", e)
+        if not imported_keys:
+            _LOGGER.warning("No valid keys found in CSV")
+            return
 
-    async def async_sync_keys(self):
+        if "keys" not in self._data:
+            self._data["keys"] = []
+
+        existing_numbers = {k.get("key_number") for k in self._data["keys"]}
+        new_keys = [
+            k for k in imported_keys if k["key_number"] not in existing_numbers
+        ]
+
+        if not new_keys:
+            _LOGGER.info("All keys from CSV already exist")
+            return
+
+        self._data["keys"].extend(new_keys)
+        if self._data.get("keys_store"):
+            await self._data["keys_store"].async_save({"keys": self._data["keys"]})
+
+        for key in new_keys:
+            payload = build_key_payload(key)
+            if payload:
+                self._pending_commands.append(
+                    {"operation": "add_cards", "cards": [payload]}
+                )
+
+        ws_handler = self._data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
+
+        _LOGGER.info("Imported %d new keys from %s", len(new_keys), file_path)
+
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_keys_imported",
+            {"file_path": file_path, "count": len(new_keys)},
+        )
+
+    async def async_sync_keys(self) -> None:
         """Request keys sync from controller."""
         connection_type = self._data.get("connection_type")
 
@@ -378,4 +392,7 @@ class IronLogicDoorLock(LockEntity):
             else:
                 _LOGGER.error("WebSocket handler not available")
         else:
-            _LOGGER.warning("Key sync is only supported in WebSocket mode. Please reconfigure the integration with WebSocket connection type.")
+            _LOGGER.warning(
+                "Key sync is only supported in WebSocket mode. "
+                "Please reconfigure the integration with WebSocket connection type."
+            )

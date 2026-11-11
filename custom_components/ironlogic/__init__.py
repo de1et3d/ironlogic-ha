@@ -40,7 +40,6 @@ from .const import (
     STORAGE_KEY,
     STORAGE_VERSION,
 )
-from .helpers import async_update_entry_data
 from .keys import is_key_allowed
 
 _LOGGER = logging.getLogger(__name__)
@@ -257,8 +256,8 @@ class IronLogicWebhookView(HomeAssistantView):
             response = await self._process_message(data)
             return self._json_response(response)
 
-        except Exception as err:
-            _LOGGER.error("Webhook error: %s", err, exc_info=True)
+        except Exception:
+            _LOGGER.exception("Webhook error")
             return self._json_response({"error": "Internal error"}, 500)
 
     async def _process_message(
@@ -419,9 +418,9 @@ class IronLogicWebhookView(HomeAssistantView):
         connection_type = self.entry_data.get("connection_type")
 
         if connection_type == CONNECTION_TYPE_WEBSOCKET:
-            ws_server = self.entry_data.get("ws_server")
-            if ws_server:
-                commands = await ws_server.get_pending_commands()
+            ws_handler = self.entry_data.get("ws_handler")
+            if ws_handler:
+                commands = await ws_handler.get_pending_commands()
         else:
             for lock in self.entry_data.get("locks", {}).values():
                 if hasattr(lock, "get_pending_commands"):
@@ -515,9 +514,8 @@ class IronLogicWebhookView(HomeAssistantView):
                     break
 
             if event_code in DOOR_OPEN_EVENTS:
-                if use_door_sensor:
-                    if door_sensor:
-                        door_sensor.update_state(True)
+                if use_door_sensor and door_sensor:
+                    door_sensor.update_state(True)
                     self.hass.bus.async_fire(
                         f"{DOMAIN}_door_opened", {"event_code": event_code}
                     )
@@ -526,9 +524,8 @@ class IronLogicWebhookView(HomeAssistantView):
                     )
 
             elif event_code in DOOR_CLOSED_EVENTS:
-                if use_door_sensor:
-                    if door_sensor:
-                        door_sensor.update_state(False)
+                if use_door_sensor and door_sensor:
+                    door_sensor.update_state(False)
                     self.hass.bus.async_fire(
                         f"{DOMAIN}_door_closed", {"event_code": event_code}
                     )
@@ -618,7 +615,7 @@ class IronLogicWebhookView(HomeAssistantView):
         _LOGGER.debug("Firing sensor update: %s", data)
         self.hass.bus.async_fire(f"{DOMAIN}_update_sensor", data)
 
-    def _json_response(self, data: dict[str, Any], status: int = 200):
+    def _json_response(self, data: dict[str, Any], status: int = 200) -> web.Response:
         return web.Response(
             text=json.dumps(data),
             content_type="application/json",

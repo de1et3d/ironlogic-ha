@@ -1,6 +1,7 @@
 {
   "domain": "ironlogic",
   "name": "IronLogic IP Controller",
+  "categories": ["lock"],
   "codeowners": ["@de1et3d"],
   "config_flow": true,
   "dependencies": ["http"],
@@ -8,7 +9,7 @@
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/de1et3d/ironlogic-ha/issues",
+  "loggers": ["custom_components.ironlogic"],
   "requirements": ["websockets==16.0"],
-  "version": "1.4.0",
-  "loggers": ["custom_components.ironlogic"]
+  "version": "1.4.0"
 }

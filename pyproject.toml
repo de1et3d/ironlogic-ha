@@ -1,0 +1,18 @@
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC", "TRY", "G", "S"]
+ignore = [
+    "BLE001",  # blind except Exception — ok in HA integrations
+    "SIM102",  # nested if — readability
+    "SIM117",  # nested with — readability
+    "SIM103",  # return condition directly — readability
+    "G201",    # use .exception instead of .error(exc_info=True) — cosmetic
+    "S110",    # try/except/pass — ok for cleanup
+    "TRY401",  # redundant exception in logging.exception — cosmetic
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # allow assert in tests

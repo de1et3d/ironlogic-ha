@@ -1,22 +1,4 @@
 {
   "name": "IronLogic IP Controller",
-  "description": "Home Assistant integration for IronLogic IP controllers",
-  "homeassistant": "2025.3.0",
-  "version": "1.4.0",
-  "authors": [
-    {
-      "name": "de1et3d",
-      "url": "https://github.com/de1et3d"
-    }
-  ],
-  "categories": ["lock"],
-  "icons": {
-    "local": "icon.png"
-  },
-  "repositories": [
-    "https://github.com/de1et3d/ironlogic-ha"
-  ],
-  "website": "https://github.com/de1et3d/ironlogic-ha",
-  "issue_tracker": "https://github.com/de1et3d/ironlogic-ha/issues",
-  "made_for_hass_version": ">=2025.3.0"
+  "homeassistant": "2025.3.0"
 }
