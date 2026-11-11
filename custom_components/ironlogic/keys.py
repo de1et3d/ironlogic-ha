@@ -75,9 +75,14 @@ def build_key_payload(key: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def build_sync_commands(
-    keys: list[dict[str, Any]], start_id: int, batch_size: int = 50
+    keys: list[dict[str, Any]] | None,
+    start_id: int,
+    batch_size: int = 50,
 ) -> list[dict[str, Any]]:
     """Build commands to sync allowed keys to controller."""
+    if not keys:
+        return []
+
     commands = []
     current_id = start_id
     batch = []

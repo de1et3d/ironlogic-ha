@@ -5,7 +5,6 @@ import sys
 
 import pytest
 
-# Add custom_components/ironlogic to import path
 COMPONENT_DIR = os.path.join(
     os.path.dirname(__file__), "..", "custom_components", "ironlogic"
 )
