@@ -35,7 +35,7 @@ This integration has been tested with:
 | **Reader** | IronLogic Matrix-III NFC |
 | **Reader Protocol** | Wiegand (master key programming is not supported via Wiegand) |
 | **HA Installation method** | Home Assistant OS |
-| **Home Assistant** | Core 2026.11.0 |
+| **HA Core** | 2026.11.1 |
 | **Supervisor** | 2026.10.5 |
 | **Operating System** | 18.4 |
 
