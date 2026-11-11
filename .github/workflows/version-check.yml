@@ -1,0 +1,50 @@
+name: Version Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check manifest.json and hacs.json versions match
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+
+          with open("custom_components/ironlogic/manifest.json") as f:
+              manifest = json.load(f)
+          with open("hacs.json") as f:
+              hacs = json.load(f)
+
+          manifest_version = manifest.get("version", "MISSING")
+          hacs_version = hacs.get("version", "MISSING")
+
+          print(f"manifest.json version: {manifest_version}")
+          print(f"hacs.json version:     {hacs_version}")
+
+          if manifest_version == "MISSING" or hacs_version == "MISSING":
+              print("::error::Version field missing in one of the files")
+              sys.exit(1)
+
+          if manifest_version != hacs_version:
+              print(
+                  f"::error::Version mismatch: manifest={manifest_version}, "
+                  f"hacs={hacs_version}"
+              )
+              sys.exit(1)
+
+          print("✓ Versions match")
+          PY
