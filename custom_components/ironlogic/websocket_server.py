@@ -1,5 +1,6 @@
 """WebSocket server for IronLogic IP Controller."""
 
+import contextlib
 import json
 import logging
 from datetime import datetime
@@ -62,7 +63,7 @@ class IronLogicWebSocketHandler:
                                 _LOGGER.debug("Failed to send response for %s: %s", self.entry_id, err)
                                 break
                     except json.JSONDecodeError:
-                        _LOGGER.error("Failed to decode JSON for %s: %s", self.entry_id, msg.data)
+                        _LOGGER.exception("Failed to decode JSON for %s: %s", self.entry_id, msg.data)
                 elif msg.type == WSMsgType.ERROR:
                     _LOGGER.error("WebSocket error for %s: %s", self.entry_id, ws.exception())
                 elif msg.type == WSMsgType.CLOSE:
@@ -429,7 +430,7 @@ class IronLogicWebSocketHandler:
                 _LOGGER.debug("Sent to %s: %s", self.entry_id, response)
                 return True
             except Exception as e:
-                _LOGGER.error("Failed to send command for %s: %s", self.entry_id, e)
+                _LOGGER.exception("Failed to send command for %s: %s", self.entry_id, e)
                 return False
         else:
             _LOGGER.warning("WebSocket not connected for %s, cannot send command", self.entry_id)
@@ -506,10 +507,8 @@ class IronLogicWebSocketServer:
 
         for handler in self._handlers.values():
             if handler.ws and not handler.ws.closed:
-                try:
+                with contextlib.suppress(Exception):
                     await handler.ws.close()
-                except Exception:
-                    pass
             handler._active = False
             handler._ws = None
 

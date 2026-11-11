@@ -51,7 +51,7 @@ def _read_keys_csv(file_path: str) -> list[dict[str, Any]]:
         raise FileNotFoundError(file_path)
 
     imported_keys: list[dict[str, Any]] = []
-    with open(path, "r", encoding="utf-8") as csvfile:
+    with open(path, encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             raw = (row.get("key_number") or "").strip()
@@ -327,7 +327,7 @@ class IronLogicDoorLock(LockEntity):
                 {"file_path": file_path, "count": count},
             )
         except OSError as e:
-            _LOGGER.error("Failed to export keys: %s", e)
+            _LOGGER.exception("Failed to export keys: %s", e)
 
     async def async_import_keys(self, file_path: str) -> None:
         """Import keys from a CSV file."""
@@ -336,10 +336,10 @@ class IronLogicDoorLock(LockEntity):
                 _read_keys_csv, file_path
             )
         except FileNotFoundError:
-            _LOGGER.error("File not found: %s", file_path)
+            _LOGGER.exception("File not found: %s", file_path)
             return
         except OSError as e:
-            _LOGGER.error("Failed to read CSV: %s", e)
+            _LOGGER.exception("Failed to read CSV: %s", e)
             return
 
         if not imported_keys:

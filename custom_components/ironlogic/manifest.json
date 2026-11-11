@@ -1,7 +1,7 @@
 {
   "domain": "ironlogic",
   "name": "IronLogic IP Controller",
-  "categories": ["lock"],
+  "categories": ["security_safety.locks_access"],
   "codeowners": ["@de1et3d"],
   "config_flow": true,
   "dependencies": ["http"],

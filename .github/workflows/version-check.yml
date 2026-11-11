@@ -18,33 +18,30 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check manifest.json and hacs.json versions match
+      - name: Check manifest.json version matches CHANGELOG.md
         run: |
           python - <<'PY'
           import json
+          import re
           import sys
 
           with open("custom_components/ironlogic/manifest.json") as f:
               manifest = json.load(f)
-          with open("hacs.json") as f:
-              hacs = json.load(f)
 
-          manifest_version = manifest.get("version", "MISSING")
-          hacs_version = hacs.get("version", "MISSING")
+          version = manifest.get("version", "MISSING")
+          print(f"manifest.json version: {version}")
 
-          print(f"manifest.json version: {manifest_version}")
-          print(f"hacs.json version:     {hacs_version}")
-
-          if manifest_version == "MISSING" or hacs_version == "MISSING":
-              print("::error::Version field missing in one of the files")
+          if version == "MISSING":
+              print("::error::Version field missing in manifest.json")
               sys.exit(1)
 
-          if manifest_version != hacs_version:
-              print(
-                  f"::error::Version mismatch: manifest={manifest_version}, "
-                  f"hacs={hacs_version}"
-              )
+          with open("CHANGELOG.md") as f:
+              changelog = f.read()
+
+          pattern = rf"^## \[{re.escape(version)}\].*$"
+          if not re.search(pattern, changelog, re.MULTILINE):
+              print(f"::error::CHANGELOG.md has no section for version {version}")
               sys.exit(1)
 
-          print("✓ Versions match")
+          print(f"✓ manifest.json and CHANGELOG.md match: {version}")
           PY

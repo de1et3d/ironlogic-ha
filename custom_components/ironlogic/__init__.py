@@ -98,7 +98,7 @@ async def save_keys_backup(
         count = await hass.async_add_executor_job(_write_backup_file, path, data)
         _LOGGER.info("Keys backup saved: %d keys to %s", count, path)
     except OSError as e:
-        _LOGGER.error("Failed to save keys backup: %s", e)
+        _LOGGER.exception("Failed to save keys backup: %s", e)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -172,10 +172,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    if sn:
-        device_name = f"IronLogic {model} ({sn} @ {host})"
-    else:
-        device_name = f"IronLogic {model} ({host})"
+    device_name = f"IronLogic {model} ({sn} @ {host})" if sn else f"IronLogic {model} ({host})"
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(

@@ -143,7 +143,7 @@ class IronLogicDoorSensor(BinarySensorEntity):
     def _handle_update(self, event):
         if not self._data.get("use_door_sensor", False):
             return
-            
+
         event_code = event.data.get("event_code")
         if event_code in (EVENT_DOOR_OPENED, EVENT_DOOR_OPENED_EXIT, EVENT_DOOR_TAMPERED, EVENT_DOOR_TAMPERED_EXIT):
             self.update_state(True)

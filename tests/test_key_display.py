@@ -17,10 +17,7 @@ def format_key_display(key, key_name=None, event_code=None, current=None):
 
     if event_code in (0x02, 0x03, 0x06, 0x07):
         if key and key != "000000000000":
-            if event_code in (0x02, 0x03):
-                status = "not found"
-            else:
-                status = "denied"
+            status = "not found" if event_code in (2, 3) else "denied"
             if has_name:
                 return f"{key_name} ({short}, {status})"
             return f"{short} ({status})"

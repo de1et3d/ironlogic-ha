@@ -48,7 +48,7 @@ class IronLogicAPI:
         **kwargs: Any,
     ) -> Any:
         """Execute function with exponential backoff retry logic.
-        
+
         Args:
             func: Async function to execute
             max_retries: Maximum number of retry attempts
@@ -56,15 +56,15 @@ class IronLogicAPI:
             max_delay: Maximum delay in seconds
             exponential_base: Exponential base for backoff
             *args, **kwargs: Arguments to pass to func
-            
+
         Returns:
             Result of func if successful
-            
+
         Raises:
             Last exception if all retries exhausted
         """
         last_exception: BaseException | None = None
-        
+
         for attempt in range(max_retries + 1):
             try:
                 return await func(*args, **kwargs)
@@ -82,16 +82,16 @@ class IronLogicAPI:
                     )
                     await asyncio.sleep(delay)
                 else:
-                    _LOGGER.error(
+                    _LOGGER.exception(
                         "All %d attempts failed for %s: %s",
                         max_retries + 1,
                         func.__name__,
                         err,
                     )
             except Exception as err:
-                _LOGGER.error("Non-retryable error in %s: %s", func.__name__, err)
+                _LOGGER.exception("Non-retryable error in %s: %s", func.__name__, err)
                 raise
-        
+
         if last_exception:
             raise last_exception
         raise RuntimeError("Retry failed with no exception")
@@ -112,7 +112,7 @@ class IronLogicAPI:
             _LOGGER.debug("Controller %s timed out after retries: %s", self.host, err)
             return False
         except Exception as err:
-            _LOGGER.error("Unexpected error checking controller %s: %s", self.host, err)
+            _LOGGER.exception("Unexpected error checking controller %s: %s", self.host, err)
             return False
 
     async def open_door(self) -> bool:
@@ -136,10 +136,10 @@ class IronLogicAPI:
         try:
             return await self._retry_with_backoff(_open)
         except (TimeoutError, aiohttp.ClientError) as err:
-            _LOGGER.error("Open door request timeout after retries: %s", err)
+            _LOGGER.exception("Open door request timeout after retries: %s", err)
             return False
         except Exception as err:
-            _LOGGER.error("Open door request failed: %s", err)
+            _LOGGER.exception("Open door request failed: %s", err)
             return False
 
     async def reboot(self) -> bool:
@@ -160,10 +160,10 @@ class IronLogicAPI:
         try:
             return await self._retry_with_backoff(_reboot)
         except (TimeoutError, aiohttp.ClientError) as err:
-            _LOGGER.error("Reboot request timeout after retries: %s", err)
+            _LOGGER.exception("Reboot request timeout after retries: %s", err)
             return False
         except Exception as err:
-            _LOGGER.error("Reboot request failed: %s", err)
+            _LOGGER.exception("Reboot request failed: %s", err)
             return False
 
     async def get_settings(self) -> dict | None:
@@ -180,15 +180,15 @@ class IronLogicAPI:
                         try:
                             return json.loads(text)
                         except json.JSONDecodeError as err:
-                            _LOGGER.error("Failed to parse JSON: %s", err)
+                            _LOGGER.exception("Failed to parse JSON: %s", err)
                             return None
                     _LOGGER.error("Get settings failed with code %d", resp.status)
                     return None
         except TimeoutError as err:
-            _LOGGER.error("Get settings timeout: %s", err)
+            _LOGGER.exception("Get settings timeout: %s", err)
             return None
         except Exception as err:
-            _LOGGER.error("Get settings failed: %s", err)
+            _LOGGER.exception("Get settings failed: %s", err)
             return None
 
     async def set_webhook_url(self, webhook_url: str, period: int = 10, connection_type: str | None = None) -> bool:
@@ -204,7 +204,7 @@ class IronLogicAPI:
 
         if "webjson" not in settings:
             settings["webjson"] = {}
-        
+
         if connection_type == CONNECTION_TYPE_WEBSOCKET:
             ws_url = webhook_url.replace("http://", "ws://").replace("https://", "wss://")
             settings["webjson"]["server"] = ws_url
@@ -213,11 +213,11 @@ class IronLogicAPI:
         else:
             settings["webjson"]["server"] = webhook_url
             settings["webjson"]["protocol"] = False
-        
+
         settings["webjson"]["period"] = period
         settings["webjson"]["login"] = ""
         settings["webjson"]["password"] = ""
-        
+
         settings["mode"] = 4
 
         url = f"{self.base_url}/save_workmode"
@@ -232,27 +232,27 @@ class IronLogicAPI:
                     timeout=10
                 ) as resp:
                     if resp.status == 200:
-                        _LOGGER.info("Webhook URL set successfully (protocol=%s)", 
+                        _LOGGER.info("Webhook URL set successfully (protocol=%s)",
                                     "WebSocket" if connection_type == CONNECTION_TYPE_WEBSOCKET else "HTTP")
                         return True
                     else:
                         _LOGGER.error("Set webhook failed with code %d", resp.status)
                         return False
         except TimeoutError as err:
-            _LOGGER.error("Set webhook timeout: %s", err)
+            _LOGGER.exception("Set webhook timeout: %s", err)
             return False
         except Exception as err:
-            _LOGGER.error("Set webhook failed: %s", err)
+            _LOGGER.exception("Set webhook failed: %s", err)
             return False
 
     def _validate_webhook_url(self, url: str) -> bool:
         """Validate webhook URL format."""
         if not url:
             return False
-        
+
         if not WEBHOOK_URL_PATTERN.match(url):
             return False
-        
+
         try:
             parsed = urlparse(url)
             if not parsed.scheme or parsed.scheme not in ("http", "https"):
