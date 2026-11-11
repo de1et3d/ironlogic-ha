@@ -169,8 +169,20 @@ class IronLogicWebSocketHandler:
         _LOGGER.debug("Keys version incremented to %d for %s", self._keys_version, self.entry_id)
 
     def _build_sync_commands(self, start_id: int) -> list:
-        """Build commands to sync allowed keys to controller."""
-        return build_sync_commands(self.entry_data.get("keys", []), start_id, SYNC_BATCH_SIZE)
+        """Build commands to sync allowed keys to controller.
+
+        If HA has no keys, do NOT send clear_cards/add_cards — the controller
+        keeps its own base. This prevents wiping the controller after a fresh
+        integration install or after the .storage file was lost.
+        """
+        keys = self.entry_data.get("keys", [])
+        if not keys:
+            _LOGGER.debug(
+                "No allowed keys in HA for %s, skipping sync "
+                "(controller keeps its own base)", self.entry_id
+            )
+            return []
+        return build_sync_commands(keys, start_id, SYNC_BATCH_SIZE)
 
     async def _handle_power_on(
         self, message: dict, global_sn: str, global_type: str
