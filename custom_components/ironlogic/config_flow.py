@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+
 import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
@@ -258,7 +259,7 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=30)
             self._scanned_hosts = [ip for ip, found in zip(ips_to_scan, results) if found]
             _LOGGER.info("Found %d IronLogic controllers: %s", len(self._scanned_hosts), self._scanned_hosts)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.warning("Network scan timeout")
 
     async def _get_local_ips(self) -> list[str]:
@@ -301,7 +302,7 @@ class IronLogicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if auth_header and "Z-5R" in auth_header:
                     _LOGGER.info("Found IronLogic controller at %s", ip)
                     return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.debug("Timeout checking %s", ip)
         except aiohttp.ClientError as e:
             _LOGGER.debug("Client error checking %s: %s", ip, e)

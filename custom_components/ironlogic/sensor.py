@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, CONF_SN
+from .const import CONF_SN, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -136,15 +136,7 @@ class IronLogicLastEventSensor(SensorEntity):
         if event_code in (0x0C, 0x0D, 0x20, 0x21, 0x22, 0x23, 0x0E, 0x0F):
             self._attr_native_value = desc
 
-        elif event_code in (0x02, 0x03, 0x06, 0x07):
-            if has_name:
-                self._attr_native_value = f"{desc}: {key_name}"
-            elif key and key != "000000000000":
-                self._attr_native_value = f"{desc}: {short}"
-            else:
-                self._attr_native_value = desc
-
-        elif event_code in (0x04, 0x05):
+        elif event_code in (0x02, 0x03, 0x06, 0x07) or event_code in (0x04, 0x05):
             if has_name:
                 self._attr_native_value = f"{desc}: {key_name}"
             elif key and key != "000000000000":

@@ -1,6 +1,5 @@
 """Tests for build_sync_commands function."""
 
-import pytest
 
 from keys import build_sync_commands
 

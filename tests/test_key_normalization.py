@@ -1,6 +1,5 @@
 """Tests for key number normalization and short display."""
 
-import pytest
 
 from keys import normalize_key_number, short_key_number
 

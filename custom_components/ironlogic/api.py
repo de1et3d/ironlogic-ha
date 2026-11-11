@@ -1,11 +1,12 @@
 """API wrapper for IronLogic IP Controller."""
 
 import asyncio
-import logging
 import json
+import logging
 import re
+from collections.abc import Callable
+from typing import Any, TypeVar
 from urllib.parse import urlparse
-from typing import Callable, TypeVar, Any
 
 import aiohttp
 
@@ -62,12 +63,12 @@ class IronLogicAPI:
         Raises:
             Last exception if all retries exhausted
         """
-        last_exception = None
+        last_exception: BaseException | None = None
         
         for attempt in range(max_retries + 1):
             try:
                 return await func(*args, **kwargs)
-            except (asyncio.TimeoutError, aiohttp.ClientError) as err:
+            except (TimeoutError, aiohttp.ClientError) as err:
                 last_exception = err
                 if attempt < max_retries:
                     delay = min(base_delay * (exponential_base ** attempt), max_delay)
@@ -91,7 +92,9 @@ class IronLogicAPI:
                 _LOGGER.error("Non-retryable error in %s: %s", func.__name__, err)
                 raise
         
-        raise last_exception
+        if last_exception:
+            raise last_exception
+        raise RuntimeError("Retry failed with no exception")
 
     async def check_availability(self) -> bool:
         """Check if controller is reachable."""
@@ -105,7 +108,7 @@ class IronLogicAPI:
 
         try:
             return await self._retry_with_backoff(_check)
-        except (asyncio.TimeoutError, aiohttp.ClientError) as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.debug("Controller %s timed out after retries: %s", self.host, err)
             return False
         except Exception as err:
@@ -119,21 +122,20 @@ class IronLogicAPI:
             auth = aiohttp.BasicAuth(self.username, self.auth_key)
             payload = {"dir": 0}
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url,
-                    auth=auth,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as resp:
-                    success = resp.status == 200
-                    if not success:
-                        _LOGGER.error("Open door failed with code %d", resp.status)
-                    return success
+            async with aiohttp.ClientSession() as session, session.post(
+                url,
+                auth=auth,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                success = resp.status == 200
+                if not success:
+                    _LOGGER.error("Open door failed with code %d", resp.status)
+                return success
 
         try:
             return await self._retry_with_backoff(_open)
-        except (asyncio.TimeoutError, aiohttp.ClientError) as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.error("Open door request timeout after retries: %s", err)
             return False
         except Exception as err:
@@ -157,7 +159,7 @@ class IronLogicAPI:
 
         try:
             return await self._retry_with_backoff(_reboot)
-        except (asyncio.TimeoutError, aiohttp.ClientError) as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.error("Reboot request timeout after retries: %s", err)
             return False
         except Exception as err:
@@ -182,14 +184,14 @@ class IronLogicAPI:
                             return None
                     _LOGGER.error("Get settings failed with code %d", resp.status)
                     return None
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             _LOGGER.error("Get settings timeout: %s", err)
             return None
         except Exception as err:
             _LOGGER.error("Get settings failed: %s", err)
             return None
 
-    async def set_webhook_url(self, webhook_url: str, period: int = 10, connection_type: str = None) -> bool:
+    async def set_webhook_url(self, webhook_url: str, period: int = 10, connection_type: str | None = None) -> bool:
         """Set webhook URL in controller."""
         if not self._validate_webhook_url(webhook_url):
             _LOGGER.error("Invalid webhook URL format: %s", webhook_url)
@@ -236,7 +238,7 @@ class IronLogicAPI:
                     else:
                         _LOGGER.error("Set webhook failed with code %d", resp.status)
                         return False
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             _LOGGER.error("Set webhook timeout: %s", err)
             return False
         except Exception as err:

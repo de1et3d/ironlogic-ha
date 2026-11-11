@@ -1,6 +1,5 @@
 """Tests for key display formatting (sensor logic)."""
 
-import pytest
 
 
 def format_key_display(key, key_name=None, event_code=None, current=None):

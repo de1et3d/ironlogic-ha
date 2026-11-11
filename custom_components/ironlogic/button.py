@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.network import get_url
 
-from .const import DOMAIN, CONNECTION_TYPE_WEBSOCKET
+from .const import CONNECTION_TYPE_WEBSOCKET, DOMAIN
 from .websocket_server import DEFAULT_WS_PORT
 
 _LOGGER = logging.getLogger(__name__)

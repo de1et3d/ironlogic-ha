@@ -1,6 +1,5 @@
 """Tests for is_key_allowed function."""
 
-import pytest
 
 from keys import is_key_allowed
 

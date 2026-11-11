@@ -1,6 +1,5 @@
 """Tests for build_key_payload function."""
 
-import pytest
 
 from keys import build_key_payload
 

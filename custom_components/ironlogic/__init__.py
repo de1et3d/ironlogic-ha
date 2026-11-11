@@ -1,16 +1,16 @@
 """Init for IronLogic IP Controller integration."""
 
-import logging
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -18,28 +18,29 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     CONF_AUTH_KEY,
     CONF_CONNECTION_TYPE,
-    CONF_SN,
     CONF_MODEL,
+    CONF_SN,
     CONNECTION_TYPE_HTTP,
     CONNECTION_TYPE_WEBSOCKET,
-    DOMAIN,
-    STORAGE_KEY,
-    STORAGE_VERSION,
-    PLATFORMS,
     DEFAULT_POLL_INTERVAL,
-    EVENT_KEY_NOT_FOUND,
-    EVENT_KEY_NOT_FOUND_EXIT,
-    EVENT_KEY_GRANTED,
-    EVENT_KEY_GRANTED_EXIT,
-    EVENT_KEY_DENIED,
-    EVENT_KEY_DENIED_EXIT,
-    EVENT_OPENED_BY_NETWORK,
-    EVENT_OPENED_BY_NETWORK_EXIT,
+    DOMAIN,
+    DOOR_CLOSED_EVENTS,
+    DOOR_OPEN_EVENTS,
     EVENT_DOOR_LEFT_OPEN,
     EVENT_DOOR_LEFT_OPEN_EXIT,
-    DOOR_OPEN_EVENTS,
-    DOOR_CLOSED_EVENTS,
+    EVENT_KEY_DENIED,
+    EVENT_KEY_DENIED_EXIT,
+    EVENT_KEY_GRANTED,
+    EVENT_KEY_GRANTED_EXIT,
+    EVENT_KEY_NOT_FOUND,
+    EVENT_KEY_NOT_FOUND_EXIT,
+    EVENT_OPENED_BY_NETWORK,
+    EVENT_OPENED_BY_NETWORK_EXIT,
+    PLATFORMS,
+    STORAGE_KEY,
+    STORAGE_VERSION,
 )
+from .helpers import async_update_entry_data
 from .keys import is_key_allowed
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,7 +60,17 @@ def get_model_from_type(controller_type: str) -> str:
         return controller_type
 
 
-async def save_keys_backup(hass: HomeAssistant, entry_id: str, host: str, keys: list) -> None:
+def _write_backup_file(path: Path, data: dict) -> int:
+    """Write keys backup to file (blocking, runs in executor)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return len(data.get("keys", []))
+
+
+async def save_keys_backup(
+    hass: HomeAssistant, entry_id: str, host: str, keys: list
+) -> None:
     """Save keys backup to a persistent file."""
     if not keys:
         return
@@ -79,23 +90,15 @@ async def save_keys_backup(hass: HomeAssistant, entry_id: str, host: str, keys: 
 
     try:
         path = Path(hass.config.path(BACKUP_FILENAME))
-        path.parent.mkdir(parents=True, exist_ok=True)
-
         data = {
             "entry_id": entry_id,
             "host": host,
             "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "keys": normalized,
         }
-
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-        _LOGGER.info(
-            "Keys backup saved: %d keys to %s", len(normalized), path
-        )
-
-    except Exception as e:
+        count = await hass.async_add_executor_job(_write_backup_file, path, data)
+        _LOGGER.info("Keys backup saved: %d keys to %s", count, path)
+    except OSError as e:
         _LOGGER.error("Failed to save keys backup: %s", e)
 
 
@@ -224,20 +227,6 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         await save_keys_backup(hass, entry.entry_id, data.get("host", ""), keys)
 
 
-async def async_update_entry_data(
-    hass: HomeAssistant, entry_id: str, **kwargs: Any
-) -> None:
-    """Update entry data without full reload (for controls)."""
-    entry = hass.config_entries.async_get_entry(entry_id)
-    if entry:
-        new_data = {**entry.data, **kwargs}
-        hass.config_entries.async_update_entry(entry, data=new_data)
-        data = hass.data[DOMAIN].get(entry_id)
-        if data:
-            for key, value in kwargs.items():
-                data[key] = value
-
-
 class IronLogicWebhookView(HomeAssistantView):
     """Handle webhook from IronLogic controller."""
 
@@ -292,6 +281,8 @@ class IronLogicWebhookView(HomeAssistantView):
                     "Received success confirmation for id %d", msg_id
                 )
                 continue
+
+            response: dict[str, Any] | None = None
 
             if "cards" in message:
                 response = await self._handle_keys(msg_id, message)
@@ -348,8 +339,8 @@ class IronLogicWebhookView(HomeAssistantView):
         self,
         msg_id: int,
         message: dict[str, Any],
-        global_sn: str = None,
-        global_type: str = None,
+        global_sn: str | None = None,
+        global_type: str | None = None,
     ) -> dict[str, Any]:
         """Handle controller power-on event."""
         sn = message.get("sn") or global_sn or "unknown"
@@ -412,7 +403,7 @@ class IronLogicWebhookView(HomeAssistantView):
 
     async def _handle_ping(
         self, msg_id: int, message: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         commands = await self._get_pending_commands()
         if commands:
             response_commands = []
@@ -614,9 +605,9 @@ class IronLogicWebhookView(HomeAssistantView):
     def _fire_sensor_update(
         self,
         sensor_type: str,
-        event_code: int = None,
-        key: str = None,
-        key_name: str = None,
+        event_code: int | None = None,
+        key: str | None = None,
+        key_name: str | None = None,
     ) -> None:
         data = {
             "type": sensor_type,
@@ -628,8 +619,6 @@ class IronLogicWebhookView(HomeAssistantView):
         self.hass.bus.async_fire(f"{DOMAIN}_update_sensor", data)
 
     def _json_response(self, data: dict[str, Any], status: int = 200):
-        import json
-
         return web.Response(
             text=json.dumps(data),
             content_type="application/json",

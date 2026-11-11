@@ -1,15 +1,14 @@
 """WebSocket server for IronLogic IP Controller."""
 
-import asyncio
 import json
 import logging
-from typing import Any, Optional
 from datetime import datetime
+from typing import Any, Optional
 
-from aiohttp import web, WSMsgType
+from aiohttp import WSMsgType, web
 
-from .const import CONF_SN, CONF_MODEL
-from .keys import is_key_allowed, build_sync_commands
+from .const import CONF_MODEL, CONF_SN
+from .keys import build_sync_commands, is_key_allowed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,8 +24,8 @@ class IronLogicWebSocketHandler:
         self.hass = hass
         self.entry_id = entry_id
         self.entry_data = entry_data
-        self._ws: Optional[web.WebSocketResponse] = None
-        self._pending_commands = []
+        self._ws: web.WebSocketResponse | None = None
+        self._pending_commands: list[dict[str, Any]] = []
         self._message_id = 0
         self._active = False
         self._keys_version = 0
@@ -37,7 +36,7 @@ class IronLogicWebSocketHandler:
         return self._active
 
     @property
-    def ws(self) -> Optional[web.WebSocketResponse]:
+    def ws(self) -> web.WebSocketResponse | None:
         return self._ws
 
     async def handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
@@ -77,7 +76,7 @@ class IronLogicWebSocketHandler:
 
         return ws
 
-    async def _process_message(self, data: dict[str, Any]) -> Optional[dict[str, Any]]:
+    async def _process_message(self, data: dict[str, Any]) -> dict[str, Any] | None:
         """Process incoming WebSocket message and return response."""
         messages = data.get("messages", [])
         global_sn = data.get(CONF_SN)
@@ -185,11 +184,12 @@ class IronLogicWebSocketHandler:
         return build_sync_commands(keys, start_id, SYNC_BATCH_SIZE)
 
     async def _handle_power_on(
-        self, message: dict, global_sn: str, global_type: str
+        self, message: dict, global_sn: str | None = None, global_type: str | None = None
     ) -> None:
         """Handle power_on message."""
-        from . import DOMAIN, get_model_from_type
         from homeassistant.helpers import device_registry as dr
+
+        from . import DOMAIN, get_model_from_type
 
         sn = message.get("sn") or global_sn or "unknown"
         controller_type = message.get("type") or global_type or "unknown"
@@ -231,7 +231,7 @@ class IronLogicWebSocketHandler:
         self._keys_version += 1
         _LOGGER.debug("Keys version incremented to %d after power_on for %s, will re-sync on next ping", self._keys_version, self.entry_id)
 
-    async def _handle_events(self, message: dict) -> Optional[dict]:
+    async def _handle_events(self, message: dict) -> dict | None:
         """Handle events message."""
         events = message.get("events", [])
         last_event = message.get("last_event", 0)
@@ -247,12 +247,21 @@ class IronLogicWebSocketHandler:
 
     async def _process_events(self, events: list) -> None:
         """Process events."""
-        from . import DOMAIN, DOOR_OPEN_EVENTS, DOOR_CLOSED_EVENTS
-        from . import EVENT_KEY_GRANTED, EVENT_KEY_GRANTED_EXIT
-        from . import EVENT_KEY_NOT_FOUND, EVENT_KEY_NOT_FOUND_EXIT
-        from . import EVENT_KEY_DENIED, EVENT_KEY_DENIED_EXIT
-        from . import EVENT_OPENED_BY_NETWORK, EVENT_OPENED_BY_NETWORK_EXIT
-        from . import EVENT_DOOR_LEFT_OPEN, EVENT_DOOR_LEFT_OPEN_EXIT
+        from . import (
+            DOMAIN,
+            DOOR_CLOSED_EVENTS,
+            DOOR_OPEN_EVENTS,
+            EVENT_DOOR_LEFT_OPEN,
+            EVENT_DOOR_LEFT_OPEN_EXIT,
+            EVENT_KEY_DENIED,
+            EVENT_KEY_DENIED_EXIT,
+            EVENT_KEY_GRANTED,
+            EVENT_KEY_GRANTED_EXIT,
+            EVENT_KEY_NOT_FOUND,
+            EVENT_KEY_NOT_FOUND_EXIT,
+            EVENT_OPENED_BY_NETWORK,
+            EVENT_OPENED_BY_NETWORK_EXIT,
+        )
 
         use_door_sensor = self.entry_data.get("use_door_sensor", False)
         door_sensor = self.entry_data.get("door_sensor_entity")
@@ -346,9 +355,9 @@ class IronLogicWebSocketHandler:
     def _fire_sensor_update(
         self,
         sensor_type: str,
-        event_code: int = None,
-        key: str = None,
-        key_name: str = None,
+        event_code: int | None = None,
+        key: str | None = None,
+        key_name: str | None = None,
     ) -> None:
         """Fire sensor update event."""
         from . import DOMAIN
@@ -442,8 +451,8 @@ class IronLogicWebSocketServer:
         """Initialize shared WebSocket server."""
         self.hass = hass
         self._port = port
-        self._runner: Optional[web.AppRunner] = None
-        self._site: Optional[web.TCPSite] = None
+        self._runner: web.AppRunner | None = None
+        self._site: web.TCPSite | None = None
         self._handlers: dict[str, IronLogicWebSocketHandler] = {}
         self._started = False
 
@@ -511,6 +520,6 @@ class IronLogicWebSocketServer:
         self._started = False
         _LOGGER.info("Shared WebSocket server stopped")
 
-    def get_handler(self, entry_id: str) -> Optional[IronLogicWebSocketHandler]:
+    def get_handler(self, entry_id: str) -> IronLogicWebSocketHandler | None:
         """Get handler for entry."""
         return self._handlers.get(entry_id)

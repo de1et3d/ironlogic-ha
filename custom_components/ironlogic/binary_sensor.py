@@ -3,8 +3,8 @@
 import logging
 
 from homeassistant.components.binary_sensor import (
-    BinarySensorEntity,
     BinarySensorDeviceClass,
+    BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -14,12 +14,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
+    EVENT_DOOR_CLOSED,
+    EVENT_DOOR_CLOSED_EXIT,
     EVENT_DOOR_OPENED,
     EVENT_DOOR_OPENED_EXIT,
     EVENT_DOOR_TAMPERED,
     EVENT_DOOR_TAMPERED_EXIT,
-    EVENT_DOOR_CLOSED,
-    EVENT_DOOR_CLOSED_EXIT,
 )
 
 _LOGGER = logging.getLogger(__name__)

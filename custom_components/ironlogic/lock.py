@@ -14,12 +14,12 @@ from homeassistant.helpers.entity import ComponentID, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CONNECTION_TYPE_WEBSOCKET,
     DEFAULT_COMMAND_COOLDOWN,
     DEFAULT_OPEN_TIME,
     DOMAIN,
-    CONNECTION_TYPE_WEBSOCKET,
 )
-from .keys import normalize_key_number, build_key_payload
+from .keys import build_key_payload, normalize_key_number
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,9 +91,9 @@ class IronLogicDoorLock(LockEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
-        self._last_command_time = 0
-        self._pending_commands = []
-        self._reset_lock_task = None
+        self._last_command_time: float = 0.0
+        self._pending_commands: list[dict[str, Any]] = []
+        self._reset_lock_task: asyncio.Task[None] | None = None
         self._availability_sub = None
         self._controller_available = True
 
@@ -172,11 +172,10 @@ class IronLogicDoorLock(LockEntity):
             except asyncio.CancelledError:
                 _LOGGER.debug("Auto-lock task cancelled")
 
-        self._reset_lock_task = asyncio.create_task(reset_lock())
+        self._reset_lock_task = asyncio.create_task(reset_lock())  # type: ignore[assignment]
 
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock is not supported (momentary lock)."""
-        pass
 
     def get_pending_commands(self) -> list[dict[str, Any]]:
         commands = self._pending_commands.copy()

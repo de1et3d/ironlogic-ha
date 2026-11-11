@@ -3,15 +3,15 @@
 import json
 import logging
 import time
-import voluptuous as vol
 
+import voluptuous as vol
 from homeassistant import config_entries
 
 from .const import (
-    DOMAIN,
     CONF_CONNECTION_TYPE,
     CONNECTION_TYPE_HTTP,
     CONNECTION_TYPE_WEBSOCKET,
+    DOMAIN,
 )
 from .keys import normalize_key_number, short_key_number
 
