@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.3.2)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate version in manifests and changelog
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          import sys
+          import os
+
+          version = os.environ["VERSION"]
+
+          with open("custom_components/ironlogic/manifest.json") as f:
+              manifest = json.load(f)
+          with open("hacs.json") as f:
+              hacs = json.load(f)
+
+          if manifest.get("version") != version:
+              print(f"::error::manifest.json version {manifest.get('version')} != input {version}")
+              sys.exit(1)
+          if hacs.get("version") != version:
+              print(f"::error::hacs.json version {hacs.get('version')} != input {version}")
+              sys.exit(1)
+
+          with open("CHANGELOG.md") as f:
+              changelog = f.read()
+
+          pattern = rf"^## \[{re.escape(version)}\].*$"
+          if not re.search(pattern, changelog, re.MULTILINE):
+              print(f"::error::CHANGELOG.md has no section for version {version}")
+              sys.exit(1)
+
+          print(f"✓ Versions match and changelog entry exists: {version}")
+          PY
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+
+      - name: Extract changelog section
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]")) found=1
+            }
+            found { print }
+          ' CHANGELOG.md | tail -n +2 > release_notes.md
+
+          echo "--- Release notes preview ---"
+          cat release_notes.md
+          echo "-----------------------------"
+
+      - name: Create tag and draft release
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          TAG="v${VERSION}"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG" -m "Release $VERSION"
+          git push origin "$TAG"
+
+          gh release create "$TAG" \
+            --title "Release $VERSION" \
+            --notes-file release_notes.md \
+            --draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
