@@ -1,6 +1,7 @@
 {
   "name": "IronLogic IP Controller",
   "description": "Home Assistant integration for IronLogic IP controllers",
+  "homeassistant": "2025.3.0",
   "version": "1.4.0",
   "authors": [
     {
@@ -17,5 +18,5 @@
   ],
   "website": "https://github.com/de1et3d/ironlogic-ha",
   "issue_tracker": "https://github.com/de1et3d/ironlogic-ha/issues",
-  "made_for_hass_version": ">=2024.1.0"
+  "made_for_hass_version": ">=2025.3.0"
 }
