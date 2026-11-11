@@ -30,7 +30,6 @@ class TestNormalizeKeyNumber:
         assert normalize_key_number("9EC1A8") == "0000009EC1A8"
 
     def test_7_chars_padded_to_12(self):
-        # "09EC1A8" is 7 chars, zfill(12) adds 5 leading zeros
         assert normalize_key_number("09EC1A8") == "0000009EC1A8"
         assert len(normalize_key_number("09EC1A8")) == 12
 

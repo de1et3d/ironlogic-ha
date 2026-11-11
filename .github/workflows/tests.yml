@@ -8,7 +8,7 @@ on:
 
 jobs:
   pytest:
-    runs-on: ubuntu-24.04  # зафиксировали, чтобы избежать сюрпризов с Ubuntu 26
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v5
