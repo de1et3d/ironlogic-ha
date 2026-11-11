@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.3.2] - 2026-11-11
+## [1.4.0] - 2026-11-11
 
 ### Added
 
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.1] - 2026-11-10
 
-### Added
+### Changed
 
 - Key input normalization: leading zeros added automatically
 - Short key display (last 6 hex characters) in sensors and options flow
