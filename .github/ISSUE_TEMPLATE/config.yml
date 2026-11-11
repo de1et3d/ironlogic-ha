@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/de1et3d/ironlogic-ha/blob/main/README.md
+    about: Check the README first - it covers setup, entities, and troubleshooting.
