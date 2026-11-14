@@ -25,7 +25,7 @@ pytest tests/ -v
 ```
 
 
-Check that `version` in `manifest.json`, `hacs.json`, and the section in `CHANGELOG.md` all match. CI runs the same checks, plus `hassfest` and HACS validation.
+Check that `version` in `manifest.json` and the section in `CHANGELOG.md` all match. CI runs the same checks, plus `hassfest` and HACS validation.
 
 ## Versioning
 
@@ -40,7 +40,7 @@ If a release has both `Added` and `Fixed` in `CHANGELOG.md`, and the `Added` ent
 ## Releases
 
 1. In `dev`, update `CHANGELOG.md`: turn `## [Unreleased]` into `## [X.Y.Z] - YYYY-MM-DD`, and add a new empty `## [Unreleased]` above it.
-2. Bump `version` in `custom_components/ironlogic/manifest.json` and `hacs.json` to the same `X.Y.Z`.
+2. Bump `version` in `custom_components/ironlogic/manifest.json` to the same `X.Y.Z`.
 3. Push `dev`, let CI pass.
 4. Open a PR from `dev` to `main`, merge it.
 5. Go to **Actions → Release → Run workflow**, enter `X.Y.Z`.
