@@ -5,7 +5,7 @@ import logging
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -39,7 +39,7 @@ class IronLogicDoorSensorSwitch(SwitchEntity):
         """Initialize the switch."""
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "door_sensor_enabled").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_door_sensor_enabled"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )

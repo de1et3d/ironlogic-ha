@@ -10,7 +10,7 @@ from typing import Any
 from homeassistant.components.lock import LockEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import ComponentID, DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -140,7 +140,7 @@ class IronLogicDoorLock(LockEntity):
         self._entry = entry
         self._data = data
         self._api = api
-        self._attr_unique_id = ComponentID(entry.entry_id, "lock").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_lock"
         self._attr_is_locked = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},

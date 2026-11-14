@@ -8,7 +8,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -54,7 +54,7 @@ class IronLogicAvailabilitySensor(CoordinatorEntity, BinarySensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "availability").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_availability"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -94,7 +94,7 @@ class IronLogicDoorSensor(BinarySensorEntity):
     def __init__(self, entry: ConfigEntry, data: dict) -> None:
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "door").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_door"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -145,7 +145,12 @@ class IronLogicDoorSensor(BinarySensorEntity):
             return
 
         event_code = event.data.get("event_code")
-        if event_code in (EVENT_DOOR_OPENED, EVENT_DOOR_OPENED_EXIT, EVENT_DOOR_TAMPERED, EVENT_DOOR_TAMPERED_EXIT):
+        if event_code in (
+            EVENT_DOOR_OPENED,
+            EVENT_DOOR_OPENED_EXIT,
+            EVENT_DOOR_TAMPERED,
+            EVENT_DOOR_TAMPERED_EXIT,
+        ):
             self.update_state(True)
         elif event_code in (EVENT_DOOR_CLOSED, EVENT_DOOR_CLOSED_EXIT):
             self.update_state(False)

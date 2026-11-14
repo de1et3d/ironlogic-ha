@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_SN, DOMAIN
@@ -47,7 +47,7 @@ class IronLogicWebhookSensor(SensorEntity):
         """Initialize the sensor."""
         self._entry = entry
         self._path = f"/api/webhook/{entry.entry_id}"
-        self._attr_unique_id = ComponentID(entry.entry_id, "webhook_url").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_webhook_url"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.data["host"])},
         )
@@ -74,7 +74,7 @@ class IronLogicLastEventSensor(SensorEntity):
         """Initialize the sensor."""
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "last_event").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_last_event"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -204,7 +204,7 @@ class IronLogicLastKeySensor(SensorEntity):
         """Initialize the sensor."""
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "last_key").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_last_key"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -323,7 +323,7 @@ class IronLogicSerialNumberSensor(SensorEntity):
         """Initialize the sensor."""
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "serial_number").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_serial_number"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -394,7 +394,7 @@ class IronLogicAllowedKeysSensor(SensorEntity):
         """Initialize the sensor."""
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "allowed_keys").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_allowed_keys"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )

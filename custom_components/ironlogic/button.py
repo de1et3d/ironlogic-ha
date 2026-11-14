@@ -8,7 +8,7 @@ from pathlib import Path
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import ComponentID, DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.network import get_url
 
@@ -51,7 +51,7 @@ class IronLogicRebootButton(ButtonEntity):
         self._entry = entry
         self._data = data
         self._api = api
-        self._attr_unique_id = ComponentID(entry.entry_id, "reboot").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_reboot"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -112,7 +112,7 @@ class IronLogicSetWebhookButton(ButtonEntity):
         self._entry = entry
         self._data = data
         self._api = api
-        self._attr_unique_id = ComponentID(entry.entry_id, "set_webhook").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_set_webhook"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
@@ -211,7 +211,7 @@ class IronLogicExportKeysButton(ButtonEntity):
         """Initialize the button."""
         self._entry = entry
         self._data = data
-        self._attr_unique_id = ComponentID(entry.entry_id, "export_keys").unique_id
+        self._attr_unique_id = f"{entry.entry_id}_export_keys"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
