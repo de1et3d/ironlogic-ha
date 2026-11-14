@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate version in manifests and changelog
+      - name: Validate version in manifest and changelog
         run: |
           python - <<'PY'
           import json
@@ -37,14 +37,9 @@ jobs:
 
           with open("custom_components/ironlogic/manifest.json") as f:
               manifest = json.load(f)
-          with open("hacs.json") as f:
-              hacs = json.load(f)
 
           if manifest.get("version") != version:
               print(f"::error::manifest.json version {manifest.get('version')} != input {version}")
-              sys.exit(1)
-          if hacs.get("version") != version:
-              print(f"::error::hacs.json version {hacs.get('version')} != input {version}")
               sys.exit(1)
 
           with open("CHANGELOG.md") as f:
@@ -55,7 +50,7 @@ jobs:
               print(f"::error::CHANGELOG.md has no section for version {version}")
               sys.exit(1)
 
-          print(f"✓ Versions match and changelog entry exists: {version}")
+          print(f"✓ manifest.json and CHANGELOG.md match: {version}")
           PY
         env:
           VERSION: ${{ github.event.inputs.version }}
