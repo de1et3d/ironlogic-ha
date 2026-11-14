@@ -1,7 +1,8 @@
 
 # IronLogic IP Controller для Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/Home_Assistant-Custom_Integration-blue?logo=homeassistant)](https://www.home-assistant.io/integrations/marketplace/)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-blue)](https://github.com/hacs/integration)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/de1et3d/ironlogic-ha)
 ![GitHub](https://img.shields.io/github/license/de1et3d/ironlogic-ha)
 
@@ -35,7 +36,7 @@
 | **Версия ПО модуля связи** | 1.79 |
 | **Режим Web-JSON** | WebSocket |
 | **Способ установки HA** | Home Assistant OS |
-| **Home Assistant** | Core 2026.11.0 |
+| **HA Core** | 2026.11.1 |
 | **Supervisor** | 2026.10.5 |
 | **Операционная система** | 18.4 |
 
@@ -139,10 +140,12 @@
 | `sensor.last_key` | Сенсор | Последний использованный ключ со статусом (например, "12345678 (granted)", "87654321 (denied)") |
 | `sensor.serial_number` | Сенсор | Серийный номер контроллера (определяется автоматически) |
 | `sensor.webhook_url` | Сенсор | Путь вебхука (полный URL в атрибуте `full_url`) |
+| `sensor.allowed_keys` | Сенсор | Количество разрешённых ключей с деталями в атрибутах (Диагностика) |
 | `switch.door_sensor` | Переключатель | Включение/отключение датчика двери (в Controls устройства) |
 | `number.poll_interval` | Число | Интервал проверки доступности контроллера (в Controls устройства) |
 | `button.reboot` | Кнопка | Перезагрузка контроллера (в Diagnostics устройства) |
 | `button.set_webhook` | Кнопка | Автоматически настроить вебхук на контроллере |
+| `button.export_keys` | Кнопка | Экспорт ключей в CSV (в Controls устройства) |
 
 ## 🔑 Управление ключами
 
@@ -150,21 +153,17 @@
 |---|---|
 | `ironlogic.add_key` | Добавить новый ключ |
 | `ironlogic.remove_key` | Удалить ключ |
-| `ironlogic.sync_keys` | Синхронизировать все ключи в HA с контроллером |
 | `ironlogic.clear_all_keys` | Удалить все ключи |
 | `ironlogic.export_keys` | Экспортировать ключи в CSV |
 | `ironlogic.import_keys` | Импортировать ключи из CSV |
+| `ironlogic.sync_keys` | Синхронизировать ключи с контроллером (только режим WebSocket) |
 
 Управление ключами осуществляется через настройки интеграции (**Настройки → Устройства и службы → IronLogic → Настроить → Разрешённые ключи**).
 
 Типы ключей:
 - **Обычный (normal)** — стандартный ключ для прохода.
 - **Блокирующий (blocking)** — ключ с более высоким статусом; в режиме «Блокировка» проход разрешён только по блокирующим ключам.
-- **Мастер-ключ (master)** — ключ для программирования. Мастер-ключи не поддерживаются протоколом Web-JSON и не могут быть добавлены в контроллер через Home Assistant. При добавлении здесь как `master` ключ сохраняется только в Home Assistant. Чтобы запрограммировать мастер-ключ в контроллер, используйте считыватель iButton (Touch Memory) и процедуру программирования мастер-ключом, описанную в руководстве контроллера. Программирование через Wiegand-считыватель контроллером не поддерживается.
-
-*Примечание: старые названия сервисов (`add_card`, `remove_card`, `clear_all_cards`) оставлены для совместимости.*
-
-*Примечание: старые названия сервисов (`add_card`, `remove_card`, `clear_all_cards`) оставлены для совместимости.*
+- **Мастер-ключ (master)** — ключ для программирования. Мастер-ключи **не поддерживаются** протоколом Web-JSON и не могут быть добавлены в контроллер через Home Assistant. При добавлении здесь как `master` ключ сохраняется только в Home Assistant. Чтобы запрограммировать мастер-ключ в контроллер, используйте считыватель iButton (Touch Memory) и процедуру программирования мастер-ключом, описанную в руководстве контроллера. Программирование через Wiegand-считыватель контроллером не поддерживается.
 
 ## 🎯 События для автоматизаций
 

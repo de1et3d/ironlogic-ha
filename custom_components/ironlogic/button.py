@@ -12,7 +12,8 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.network import get_url
 
-from .const import DOMAIN, CONNECTION_TYPE_WEBSOCKET
+from .const import CONNECTION_TYPE_WEBSOCKET, DOMAIN
+from .websocket_server import DEFAULT_WS_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -169,7 +170,7 @@ class IronLogicSetWebhookButton(ButtonEntity):
         connection_type = self._data.get("connection_type")
 
         if connection_type == CONNECTION_TYPE_WEBSOCKET:
-            webhook_url = f"ws://{host}:8124{webhook_path}"
+            webhook_url = f"ws://{host}:{DEFAULT_WS_PORT}{webhook_path}"
         else:
             webhook_url = base_url + webhook_path
 
@@ -205,7 +206,6 @@ class IronLogicExportKeysButton(ButtonEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:content-save"
     _attr_translation_key = "export_keys"
-    _attr_name = "Export keys"
 
     def __init__(self, entry: ConfigEntry, data: dict) -> None:
         """Initialize the button."""

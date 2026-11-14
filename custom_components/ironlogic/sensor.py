@@ -1,5 +1,6 @@
 """Sensor platform for IronLogic."""
 
+import json
 import logging
 from typing import Any
 
@@ -9,7 +10,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import CONF_SN, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,9 +81,9 @@ class IronLogicLastEventSensor(SensorEntity):
         self._unsub = None
         self._availability_sub = None
         self._controller_available = True
-        self._last_event_code = None
-        self._last_key = None
-        self._last_key_name = None
+        self._last_event_code: int | None = None
+        self._last_key: str | None = None
+        self._last_key_name: str | None = None
         self._attr_native_value = "Waiting for events..."
 
     def _get_event_description(self, event_code: int) -> str:
@@ -115,7 +116,7 @@ class IronLogicLastEventSensor(SensorEntity):
         }
         return descriptions.get(event_code, f"Event {event_code}")
 
-    def _update_state(self):
+    def _update_state(self) -> None:
         """Update state with current values."""
         if self._last_event_code is None:
             self._attr_native_value = "Waiting for events..."
@@ -135,15 +136,7 @@ class IronLogicLastEventSensor(SensorEntity):
         if event_code in (0x0C, 0x0D, 0x20, 0x21, 0x22, 0x23, 0x0E, 0x0F):
             self._attr_native_value = desc
 
-        elif event_code in (0x02, 0x03, 0x06, 0x07):
-            if has_name:
-                self._attr_native_value = f"{desc}: {key_name}"
-            elif key and key != "000000000000":
-                self._attr_native_value = f"{desc}: {short}"
-            else:
-                self._attr_native_value = desc
-
-        elif event_code in (0x04, 0x05):
+        elif event_code in (0x02, 0x03, 0x06, 0x07) or event_code in (0x04, 0x05):
             if has_name:
                 self._attr_native_value = f"{desc}: {key_name}"
             elif key and key != "000000000000":
@@ -159,7 +152,7 @@ class IronLogicLastEventSensor(SensorEntity):
         """Return if sensor is available (controller must be reachable)."""
         return self._controller_available
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         await super().async_added_to_hass()
         self._unsub = self.hass.bus.async_listen(
@@ -171,7 +164,7 @@ class IronLogicLastEventSensor(SensorEntity):
         self._update_state()
         self.async_write_ha_state()
 
-    async def async_will_remove_from_hass(self):
+    async def async_will_remove_from_hass(self) -> None:
         """Remove callbacks."""
         if self._unsub:
             self._unsub()
@@ -180,7 +173,7 @@ class IronLogicLastEventSensor(SensorEntity):
         await super().async_will_remove_from_hass()
 
     @callback
-    def _handle_availability_update(self, event):
+    def _handle_availability_update(self, event) -> None:
         """Handle availability change."""
         available = event.data.get("available", False)
         if self._controller_available != available:
@@ -188,7 +181,7 @@ class IronLogicLastEventSensor(SensorEntity):
             self.async_write_ha_state()
 
     @callback
-    def _handle_update(self, event):
+    def _handle_update(self, event) -> None:
         """Handle sensor update event."""
         if event.data.get("type") != "last_event":
             return
@@ -218,12 +211,12 @@ class IronLogicLastKeySensor(SensorEntity):
         self._unsub = None
         self._availability_sub = None
         self._controller_available = True
-        self._last_key = None
-        self._last_key_name = None
-        self._last_event_code = None
+        self._last_key: str | None = None
+        self._last_key_name: str | None = None
+        self._last_event_code: int | None = None
         self._attr_native_value = "No keys yet"
 
-    def _update_state(self):
+    def _update_state(self) -> None:
         """Update display with current values."""
         if self._last_event_code is None:
             self._attr_native_value = "No keys yet"
@@ -233,7 +226,10 @@ class IronLogicLastKeySensor(SensorEntity):
             )
 
     def _format_key(
-        self, key: str, key_name: str = None, event_code: int = None
+        self,
+        key: str | None,
+        key_name: str | None = None,
+        event_code: int | None = None,
     ) -> str:
         """Format key for display: name first, short number as fallback."""
         if event_code in (0x08, 0x09):
@@ -250,10 +246,7 @@ class IronLogicLastKeySensor(SensorEntity):
 
         if event_code in (0x02, 0x03, 0x06, 0x07):
             if key and key != "000000000000":
-                if event_code in (0x02, 0x03):
-                    status = "not found"
-                else:
-                    status = "denied"
+                status = "not found" if event_code in (2, 3) else "denied"
                 if has_name:
                     return f"{key_name} ({short}, {status})"
                 return f"{short} ({status})"
@@ -277,7 +270,7 @@ class IronLogicLastKeySensor(SensorEntity):
         """Return if sensor is available (controller must be reachable)."""
         return self._controller_available
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         await super().async_added_to_hass()
         self._unsub = self.hass.bus.async_listen(
@@ -289,7 +282,7 @@ class IronLogicLastKeySensor(SensorEntity):
         self._update_state()
         self.async_write_ha_state()
 
-    async def async_will_remove_from_hass(self):
+    async def async_will_remove_from_hass(self) -> None:
         """Remove callbacks."""
         if self._unsub:
             self._unsub()
@@ -298,7 +291,7 @@ class IronLogicLastKeySensor(SensorEntity):
         await super().async_will_remove_from_hass()
 
     @callback
-    def _handle_availability_update(self, event):
+    def _handle_availability_update(self, event) -> None:
         """Handle availability change."""
         available = event.data.get("available", False)
         if self._controller_available != available:
@@ -306,7 +299,7 @@ class IronLogicLastKeySensor(SensorEntity):
             self.async_write_ha_state()
 
     @callback
-    def _handle_update(self, event):
+    def _handle_update(self, event) -> None:
         """Handle sensor update event."""
         if event.data.get("type") != "last_key":
             return
@@ -330,14 +323,14 @@ class IronLogicSerialNumberSensor(SensorEntity):
         """Initialize the sensor."""
         self._entry = entry
         self._data = data
-        self._attr_unique_id = f"{entry.entry_id}_sn"
+        self._attr_unique_id = f"{entry.entry_id}_serial_number"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, data["host"])},
         )
         self._unsub = None
         self._availability_sub = None
         self._controller_available = True
-        self._sn = data.get("sn")
+        self._sn = data.get(CONF_SN)
         self._attr_native_value = self._sn or "Waiting for data..."
 
     @property
@@ -345,7 +338,7 @@ class IronLogicSerialNumberSensor(SensorEntity):
         """Return if sensor is available (controller must be reachable)."""
         return self._controller_available
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         await super().async_added_to_hass()
         self._unsub = self.hass.bus.async_listen(
@@ -354,14 +347,14 @@ class IronLogicSerialNumberSensor(SensorEntity):
         self._availability_sub = self.hass.bus.async_listen(
             f"{DOMAIN}_availability_updated", self._handle_availability_update
         )
-        if self._data.get("sn"):
-            self._sn = self._data.get("sn")
+        if self._data.get(CONF_SN):
+            self._sn = self._data.get(CONF_SN)
             self._attr_native_value = self._sn
         else:
             self._attr_native_value = "Waiting for data..."
         self.async_write_ha_state()
 
-    async def async_will_remove_from_hass(self):
+    async def async_will_remove_from_hass(self) -> None:
         """Remove callbacks."""
         if self._unsub:
             self._unsub()
@@ -370,7 +363,7 @@ class IronLogicSerialNumberSensor(SensorEntity):
         await super().async_will_remove_from_hass()
 
     @callback
-    def _handle_availability_update(self, event):
+    def _handle_availability_update(self, event) -> None:
         """Handle availability change."""
         available = event.data.get("available", False)
         if self._controller_available != available:
@@ -378,7 +371,7 @@ class IronLogicSerialNumberSensor(SensorEntity):
             self.async_write_ha_state()
 
     @callback
-    def _handle_sn_update(self, event):
+    def _handle_sn_update(self, event) -> None:
         """Handle SN update event."""
         sn = event.data.get("sn")
         _LOGGER.debug("SN sensor received update: %s", sn)
@@ -410,7 +403,7 @@ class IronLogicAllowedKeysSensor(SensorEntity):
         self._controller_available = True
         self._update_value()
 
-    def _update_value(self):
+    def _update_value(self) -> None:
         """Update sensor value."""
         keys = self._data.get("keys", [])
         normalized = []
@@ -427,15 +420,13 @@ class IronLogicAllowedKeysSensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
-        import json as _json
-
         keys = self._data.get("keys", [])
         normalized = []
         for k in keys:
             if isinstance(k, str):
                 try:
-                    k = _json.loads(k)
-                except (_json.JSONDecodeError, TypeError):
+                    k = json.loads(k)
+                except (json.JSONDecodeError, TypeError):
                     continue
             if isinstance(k, dict):
                 full = k.get("key_number", "")
@@ -457,7 +448,7 @@ class IronLogicAllowedKeysSensor(SensorEntity):
         """Return if sensor is available."""
         return self._controller_available
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         await super().async_added_to_hass()
         self._unsub = self.hass.bus.async_listen(
@@ -469,7 +460,7 @@ class IronLogicAllowedKeysSensor(SensorEntity):
         self._update_value()
         self.async_write_ha_state()
 
-    async def async_will_remove_from_hass(self):
+    async def async_will_remove_from_hass(self) -> None:
         """Remove callbacks."""
         if self._unsub:
             self._unsub()
@@ -478,7 +469,7 @@ class IronLogicAllowedKeysSensor(SensorEntity):
         await super().async_will_remove_from_hass()
 
     @callback
-    def _handle_availability_update(self, event):
+    def _handle_availability_update(self, event) -> None:
         """Handle availability change."""
         available = event.data.get("available", False)
         if self._controller_available != available:
@@ -486,7 +477,7 @@ class IronLogicAllowedKeysSensor(SensorEntity):
             self.async_write_ha_state()
 
     @callback
-    def _handle_keys_update(self, event):
+    def _handle_keys_update(self, event) -> None:
         """Handle keys list update."""
         self._update_value()
         self.async_write_ha_state()

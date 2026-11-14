@@ -1,16 +1,16 @@
 """Init for IronLogic IP Controller integration."""
 
-import logging
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -18,30 +18,33 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     CONF_AUTH_KEY,
     CONF_CONNECTION_TYPE,
+    CONF_MODEL,
+    CONF_SN,
     CONNECTION_TYPE_HTTP,
     CONNECTION_TYPE_WEBSOCKET,
-    DOMAIN,
-    STORAGE_KEY,
-    STORAGE_VERSION,
-    PLATFORMS,
     DEFAULT_POLL_INTERVAL,
-    EVENT_KEY_NOT_FOUND,
-    EVENT_KEY_NOT_FOUND_EXIT,
-    EVENT_KEY_GRANTED,
-    EVENT_KEY_GRANTED_EXIT,
-    EVENT_KEY_DENIED,
-    EVENT_KEY_DENIED_EXIT,
-    EVENT_OPENED_BY_NETWORK,
-    EVENT_OPENED_BY_NETWORK_EXIT,
+    DOMAIN,
+    DOOR_CLOSED_EVENTS,
+    DOOR_OPEN_EVENTS,
     EVENT_DOOR_LEFT_OPEN,
     EVENT_DOOR_LEFT_OPEN_EXIT,
-    DOOR_OPEN_EVENTS,
-    DOOR_CLOSED_EVENTS,
+    EVENT_KEY_DENIED,
+    EVENT_KEY_DENIED_EXIT,
+    EVENT_KEY_GRANTED,
+    EVENT_KEY_GRANTED_EXIT,
+    EVENT_KEY_NOT_FOUND,
+    EVENT_KEY_NOT_FOUND_EXIT,
+    EVENT_OPENED_BY_NETWORK,
+    EVENT_OPENED_BY_NETWORK_EXIT,
+    PLATFORMS,
+    STORAGE_KEY,
+    STORAGE_VERSION,
 )
+from .keys import is_key_allowed
 
 _LOGGER = logging.getLogger(__name__)
 
-BACKUP_FILE = "/config/ironlogic_keys_backup.json"
+BACKUP_FILENAME = "ironlogic_keys_backup.json"
 
 
 def get_model_from_type(controller_type: str) -> str:
@@ -56,7 +59,17 @@ def get_model_from_type(controller_type: str) -> str:
         return controller_type
 
 
-async def save_keys_backup(entry_id: str, host: str, keys: list) -> None:
+def _write_backup_file(path: Path, data: dict) -> int:
+    """Write keys backup to file (blocking, runs in executor)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return len(data.get("keys", []))
+
+
+async def save_keys_backup(
+    hass: HomeAssistant, entry_id: str, host: str, keys: list
+) -> None:
     """Save keys backup to a persistent file."""
     if not keys:
         return
@@ -75,25 +88,17 @@ async def save_keys_backup(entry_id: str, host: str, keys: list) -> None:
         return
 
     try:
-        path = Path(BACKUP_FILE)
-        path.parent.mkdir(parents=True, exist_ok=True)
-
+        path = Path(hass.config.path(BACKUP_FILENAME))
         data = {
             "entry_id": entry_id,
             "host": host,
             "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "keys": normalized,
         }
-
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-        _LOGGER.info(
-            "Keys backup saved: %d keys to %s", len(normalized), BACKUP_FILE
-        )
-
-    except Exception as e:
-        _LOGGER.error("Failed to save keys backup: %s", e)
+        count = await hass.async_add_executor_job(_write_backup_file, path, data)
+        _LOGGER.info("Keys backup saved: %d keys to %s", count, path)
+    except OSError as e:
+        _LOGGER.exception("Failed to save keys backup: %s", e)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -115,8 +120,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     use_door_sensor = entry.data.get("use_door_sensor", False)
     poll_interval = entry.data.get("poll_interval", DEFAULT_POLL_INTERVAL)
-    sn = entry.data.get("sn", None)
-    model = entry.data.get("model", "IP Controller")
+    sn = entry.data.get(CONF_SN, None)
+    model = entry.data.get(CONF_MODEL, "IP Controller")
 
     async def async_update_availability():
         try:
@@ -146,8 +151,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "availability_coordinator": availability_coordinator,
         "use_door_sensor": use_door_sensor,
         "poll_interval": poll_interval,
-        "sn": sn,
-        "model": model,
+        CONF_SN: sn,
+        CONF_MODEL: model,
         "door_sensor_entity": None,
     }
     hass.data[DOMAIN][entry.entry_id] = entry_data
@@ -155,9 +160,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if connection_type == CONNECTION_TYPE_WEBSOCKET:
         from .websocket_server import IronLogicWebSocketServer
 
-        ws_server = IronLogicWebSocketServer(hass, entry.entry_id, entry_data)
-        await ws_server.start()
-        entry_data["ws_server"] = ws_server
+        ws_server = IronLogicWebSocketServer.get_instance(hass)
+        handler = ws_server.register_handler(entry.entry_id, entry_data)
+        entry_data["ws_handler"] = handler
+        if not ws_server._started:
+            await ws_server.start()
     else:
         hass.http.register_view(
             IronLogicWebhookView(hass, entry.entry_id, entry_data)
@@ -165,10 +172,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    if sn:
-        device_name = f"IronLogic {model} ({sn} @ {host})"
-    else:
-        device_name = f"IronLogic {model} ({host})"
+    device_name = f"IronLogic {model} ({sn} @ {host})" if sn else f"IronLogic {model} ({host})"
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -195,12 +199,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         data = hass.data[DOMAIN].get(entry.entry_id)
         if data:
-            if data.get("ws_server"):
-                await data["ws_server"].stop()
+            if data.get("ws_handler"):
+                from .websocket_server import IronLogicWebSocketServer
+                ws_server = IronLogicWebSocketServer.get_instance(hass)
+                ws_server.unregister_handler(entry.entry_id)
+                if not ws_server._handlers:
+                    await ws_server.stop()
+                    IronLogicWebSocketServer.reset_instance()
+
             if data.get("keys_store"):
                 keys = data.get("keys", [])
                 await data["keys_store"].async_save({"keys": keys})
-                await save_keys_backup(entry.entry_id, data.get("host", ""), keys)
+                await save_keys_backup(hass, entry.entry_id, data.get("host", ""), keys)
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
 
@@ -210,21 +220,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if data:
         keys = data.get("keys", [])
-        await save_keys_backup(entry.entry_id, data.get("host", ""), keys)
-
-
-async def async_update_entry_data(
-    hass: HomeAssistant, entry_id: str, **kwargs
-) -> None:
-    """Update entry data without full reload (for controls)."""
-    entry = hass.config_entries.async_get_entry(entry_id)
-    if entry:
-        new_data = {**entry.data, **kwargs}
-        hass.config_entries.async_update_entry(entry, data=new_data)
-        data = hass.data[DOMAIN].get(entry_id)
-        if data:
-            for key, value in kwargs.items():
-                data[key] = value
+        await save_keys_backup(hass, entry.entry_id, data.get("host", ""), keys)
 
 
 class IronLogicWebhookView(HomeAssistantView):
@@ -234,14 +230,14 @@ class IronLogicWebhookView(HomeAssistantView):
 
     def __init__(
         self, hass: HomeAssistant, entry_id: str, entry_data: dict[str, Any]
-    ):
+    ) -> None:
         self.hass = hass
         self.entry_id = entry_id
         self.entry_data = entry_data
         self.url = f"/api/webhook/{entry_id}"
         self.name = f"api:webhook:{entry_id}"
 
-    async def get(self, request):
+    async def get(self, request: web.Request) -> web.Response:
         response = {
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "interval": 10,
@@ -249,7 +245,7 @@ class IronLogicWebhookView(HomeAssistantView):
         }
         return self._json_response(response)
 
-    async def post(self, request):
+    async def post(self, request: web.Request) -> web.Response:
         try:
             data = await request.json()
             _LOGGER.debug("Received data from controller: %s", data)
@@ -257,8 +253,8 @@ class IronLogicWebhookView(HomeAssistantView):
             response = await self._process_message(data)
             return self._json_response(response)
 
-        except Exception as err:
-            _LOGGER.error("Webhook error: %s", err, exc_info=True)
+        except Exception:
+            _LOGGER.exception("Webhook error")
             return self._json_response({"error": "Internal error"}, 500)
 
     async def _process_message(
@@ -268,7 +264,7 @@ class IronLogicWebhookView(HomeAssistantView):
         messages = data.get("messages", [])
         responses = []
 
-        global_sn = data.get("sn")
+        global_sn = data.get(CONF_SN)
         global_type = data.get("type")
 
         for message in messages:
@@ -281,6 +277,8 @@ class IronLogicWebhookView(HomeAssistantView):
                     "Received success confirmation for id %d", msg_id
                 )
                 continue
+
+            response: dict[str, Any] | None = None
 
             if "cards" in message:
                 response = await self._handle_keys(msg_id, message)
@@ -312,17 +310,7 @@ class IronLogicWebhookView(HomeAssistantView):
 
     def _is_key_allowed(self, key_id: str) -> int:
         """Check if key is allowed."""
-        if not key_id:
-            return 0
-        for key in self.entry_data.get("keys", []):
-            if isinstance(key, str):
-                try:
-                    key = json.loads(key)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            if isinstance(key, dict) and key.get("key_number") == key_id:
-                return 1
-        return 0
+        return is_key_allowed(key_id, self.entry_data.get("keys", []))
 
     async def _handle_check_access(
         self, msg_id: int, message: dict[str, Any]
@@ -347,8 +335,8 @@ class IronLogicWebhookView(HomeAssistantView):
         self,
         msg_id: int,
         message: dict[str, Any],
-        global_sn: str = None,
-        global_type: str = None,
+        global_sn: str | None = None,
+        global_type: str | None = None,
     ) -> dict[str, Any]:
         """Handle controller power-on event."""
         sn = message.get("sn") or global_sn or "unknown"
@@ -357,24 +345,24 @@ class IronLogicWebhookView(HomeAssistantView):
 
         model = get_model_from_type(controller_type)
 
-        current_sn = self.entry_data.get("sn")
-        current_model = self.entry_data.get("model")
+        current_sn = self.entry_data.get(CONF_SN)
+        current_model = self.entry_data.get(CONF_MODEL)
         need_update = False
         need_sn_event = False
 
         if sn != "unknown" and current_sn != sn:
-            self.entry_data["sn"] = sn
+            self.entry_data[CONF_SN] = sn
             need_update = True
             need_sn_event = True
 
         if current_model != model:
-            self.entry_data["model"] = model
+            self.entry_data[CONF_MODEL] = model
             need_update = True
 
         if need_update:
             entry = self.hass.config_entries.async_get_entry(self.entry_id)
             if entry:
-                new_data = {**entry.data, "sn": sn, "model": model}
+                new_data = {**entry.data, CONF_SN: sn, CONF_MODEL: model}
                 self.hass.config_entries.async_update_entry(
                     entry, data=new_data
                 )
@@ -398,7 +386,7 @@ class IronLogicWebhookView(HomeAssistantView):
                 )
 
         if sn != "unknown" and (
-            need_sn_event or self.entry_data.get("sn") == sn
+            need_sn_event or self.entry_data.get(CONF_SN) == sn
         ):
             self.hass.bus.async_fire(f"{DOMAIN}_sn_updated", {"sn": sn})
 
@@ -411,7 +399,7 @@ class IronLogicWebhookView(HomeAssistantView):
 
     async def _handle_ping(
         self, msg_id: int, message: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         commands = await self._get_pending_commands()
         if commands:
             response_commands = []
@@ -427,9 +415,9 @@ class IronLogicWebhookView(HomeAssistantView):
         connection_type = self.entry_data.get("connection_type")
 
         if connection_type == CONNECTION_TYPE_WEBSOCKET:
-            ws_server = self.entry_data.get("ws_server")
-            if ws_server:
-                commands = await ws_server.get_pending_commands()
+            ws_handler = self.entry_data.get("ws_handler")
+            if ws_handler:
+                commands = await ws_handler.get_pending_commands()
         else:
             for lock in self.entry_data.get("locks", {}).values():
                 if hasattr(lock, "get_pending_commands"):
@@ -523,9 +511,8 @@ class IronLogicWebhookView(HomeAssistantView):
                     break
 
             if event_code in DOOR_OPEN_EVENTS:
-                if use_door_sensor:
-                    if door_sensor:
-                        door_sensor.update_state(True)
+                if use_door_sensor and door_sensor:
+                    door_sensor.update_state(True)
                     self.hass.bus.async_fire(
                         f"{DOMAIN}_door_opened", {"event_code": event_code}
                     )
@@ -534,9 +521,8 @@ class IronLogicWebhookView(HomeAssistantView):
                     )
 
             elif event_code in DOOR_CLOSED_EVENTS:
-                if use_door_sensor:
-                    if door_sensor:
-                        door_sensor.update_state(False)
+                if use_door_sensor and door_sensor:
+                    door_sensor.update_state(False)
                     self.hass.bus.async_fire(
                         f"{DOMAIN}_door_closed", {"event_code": event_code}
                     )
@@ -613,9 +599,9 @@ class IronLogicWebhookView(HomeAssistantView):
     def _fire_sensor_update(
         self,
         sensor_type: str,
-        event_code: int = None,
-        key: str = None,
-        key_name: str = None,
+        event_code: int | None = None,
+        key: str | None = None,
+        key_name: str | None = None,
     ) -> None:
         data = {
             "type": sensor_type,
@@ -626,9 +612,7 @@ class IronLogicWebhookView(HomeAssistantView):
         _LOGGER.debug("Firing sensor update: %s", data)
         self.hass.bus.async_fire(f"{DOMAIN}_update_sensor", data)
 
-    def _json_response(self, data: dict[str, Any], status: int = 200):
-        import json
-
+    def _json_response(self, data: dict[str, Any], status: int = 200) -> web.Response:
         return web.Response(
             text=json.dumps(data),
             content_type="application/json",

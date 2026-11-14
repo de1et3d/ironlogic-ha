@@ -9,7 +9,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from . import async_update_entry_data
+from .helpers import async_update_entry_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class IronLogicDoorSensorSwitch(SwitchEntity):
         self._data["use_door_sensor"] = True
         self._attr_is_on = True
         self.async_write_ha_state()
-        
+
         if self._data.get("door_sensor_entity"):
             self._data["door_sensor_entity"]._attr_available = True
             self._data["door_sensor_entity"].async_write_ha_state()
@@ -66,7 +66,7 @@ class IronLogicDoorSensorSwitch(SwitchEntity):
         self._data["use_door_sensor"] = False
         self._attr_is_on = False
         self.async_write_ha_state()
-        
+
         if self._data.get("door_sensor_entity"):
-            self._data["door_sensor_entity"]._attr_is_on = False
+            self._data["door_sensor_entity"]._attr_available = False
             self._data["door_sensor_entity"].async_write_ha_state()

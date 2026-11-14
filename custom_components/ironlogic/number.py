@@ -8,8 +8,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, DEFAULT_POLL_INTERVAL
-from . import async_update_entry_data
+from .const import DEFAULT_POLL_INTERVAL, DOMAIN
+from .helpers import async_update_entry_data
 
 _LOGGER = logging.getLogger(__name__)
 

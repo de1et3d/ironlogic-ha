@@ -1,6 +1,7 @@
 # IronLogic IP Controller for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/Home_Assistant-Custom_Integration-blue?logo=homeassistant)](https://www.home-assistant.io/integrations/marketplace/)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-blue)](https://github.com/hacs/integration)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/de1et3d/ironlogic-ha)
 ![GitHub](https://img.shields.io/github/license/de1et3d/ironlogic-ha)
 
@@ -34,7 +35,7 @@ This integration has been tested with:
 | **Reader** | IronLogic Matrix-III NFC |
 | **Reader Protocol** | Wiegand (master key programming is not supported via Wiegand) |
 | **HA Installation method** | Home Assistant OS |
-| **Home Assistant** | Core 2026.11.0 |
+| **HA Core** | 2026.11.1 |
 | **Supervisor** | 2026.10.5 |
 | **Operating System** | 18.4 |
 
@@ -136,10 +137,12 @@ See [debug_server.py](debug_server.py) for a simple Python script that logs all 
 | `sensor.last_key` | Sensor | Last key used with status (e.g., "12345678 (granted)", "87654321 (denied)") |
 | `sensor.serial_number` | Sensor | Controller serial number (automatically detected) |
 | `sensor.webhook_url` | Sensor | Webhook path (with `full_url` attribute) |
+| `sensor.allowed_keys` | Sensor | Allowed keys count with details in attributes (Diagnostic) |
 | `switch.door_sensor` | Switch | Enable/disable door sensor (in device Controls) |
 | `number.poll_interval` | Number | Controller availability check interval (in device Controls) |
 | `button.reboot` | Button | Reboot the controller (in device Diagnostics) |
 | `button.set_webhook` | Button | Automatically configure webhook URL in controller |
+| `button.export_keys` | Button | Export keys to CSV file (in device Controls) |
 
 ## 🔑 Key Management
 
@@ -147,19 +150,17 @@ See [debug_server.py](debug_server.py) for a simple Python script that logs all 
 |---|---|
 | `ironlogic.add_key` | Add a new key |
 | `ironlogic.remove_key` | Remove a key |
-| `ironlogic.sync_keys` | Sync all keys in HA with the controller |
 | `ironlogic.clear_all_keys` | Delete all keys |
 | `ironlogic.export_keys` | Export keys to CSV |
 | `ironlogic.import_keys` | Import keys from CSV |
+| `ironlogic.sync_keys` | Synchronize keys from controller (WebSocket mode only) |
 
 Keys are managed through the integration settings (**Settings → Devices & Services → IronLogic → Configure → Allowed keys**).
 
 Key types:
 - **Normal** — standard key for passage.
 - **Blocking** — higher-status key; in "Blocking" mode only blocking keys are allowed.
-- **Master** — programming key. Master keys are not supported by the Web-JSON protocol and cannot be added to the controller via Home Assistant. When added here as `master`, the key is stored in Home Assistant only. To program a master key into the controller, use an iButton (Touch Memory) reader and the master key programming procedure described in the controller manual. Programming via a Wiegand reader is not supported by the controller.
-
-*Note: legacy service names (`add_card`, `remove_card`, `clear_all_cards`) are still available for compatibility.*
+- **Master** — programming key. Master keys are **not supported** by the Web-JSON protocol and cannot be added to the controller via Home Assistant. When added here as `master`, the key is stored in Home Assistant only. To program a master key into the controller, use an iButton (Touch Memory) reader and the master key programming procedure described in the controller manual. Programming via a Wiegand reader is not supported by the controller.
 
 ## 🎯 Events for Automations
 

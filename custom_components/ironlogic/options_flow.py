@@ -3,35 +3,19 @@
 import json
 import logging
 import time
-import voluptuous as vol
 
+import voluptuous as vol
 from homeassistant import config_entries
 
 from .const import (
-    DOMAIN,
     CONF_CONNECTION_TYPE,
     CONNECTION_TYPE_HTTP,
     CONNECTION_TYPE_WEBSOCKET,
+    DOMAIN,
 )
+from .keys import normalize_key_number, short_key_number
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _normalize_key_number(value: str) -> str:
-    """Normalize user-entered key number to 12 hex characters."""
-    value = value.strip().upper().replace(" ", "")
-    if not value:
-        return ""
-    if len(value) <= 12:
-        return value.zfill(12)
-    return value[-12:]
-
-
-def _short_key_number(value: str) -> str:
-    """Return short display form of a key number (last 6 characters)."""
-    if not value:
-        return ""
-    return value[-6:]
 
 
 class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
@@ -142,9 +126,8 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="allowed_keys",
             data_schema=vol.Schema(
                 {
-                    vol.Required("action", default="list"): vol.In(
+                    vol.Required("action", default="add"): vol.In(
                         {
-                            "list": "Show current allowed keys",
                             "add": "Add key",
                             "remove": "Remove key",
                         }
@@ -159,10 +142,12 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
-            raw = (user_input.get("key_number") or "").strip()
-            key_number = _normalize_key_number(raw)
-            if not key_number:
+            raw = (user_input.get("key_number") or "").strip().upper().replace(" ", "")
+            key_number = normalize_key_number(raw)
+            if not raw:
                 errors["base"] = "key_number_required"
+            elif not key_number:
+                errors["base"] = "key_number_invalid_length"
             else:
                 name = (user_input.get("key_name") or "").strip()
                 key_type = user_input.get("key_type", "normal")
@@ -198,19 +183,22 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             if not key_number:
                 errors["base"] = "key_number_required"
             else:
-                key_number = _normalize_key_number(key_number)
-                await self._remove_allowed_key(key_number)
-                self.keys = self.data.get("keys", [])
-                self.hass.bus.async_fire(
-                    f"{DOMAIN}_keys_updated", {"keys": self.keys}
-                )
-                return await self.async_step_allowed_keys()
+                key_number = normalize_key_number(key_number)
+                if not key_number:
+                    errors["base"] = "key_number_invalid_length"
+                else:
+                    await self._remove_allowed_key(key_number)
+                    self.keys = self.data.get("keys", [])
+                    self.hass.bus.async_fire(
+                        f"{DOMAIN}_keys_updated", {"keys": self.keys}
+                    )
+                    return await self.async_step_allowed_keys()
 
         keys = self._normalized_keys()
         choices = {}
         for k in keys:
             choices[k["key_number"]] = (
-                f"{_short_key_number(k['key_number'])} — "
+                f"{short_key_number(k['key_number'])} — "
                 f"{k.get('name') or 'unnamed'} "
                 f"({k.get('type', 'normal')})"
             )
@@ -258,24 +246,24 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
         lines = []
         for i, key in enumerate(keys, 1):
             name = key.get("name") or "unnamed"
-            key_num = _short_key_number(key.get("key_number", ""))
+            key_num = short_key_number(key.get("key_number", ""))
             key_type = key.get("type", "normal")
             lines.append(f"{i}. {key_num} - {name} ({key_type})")
 
         return "\n".join(lines) if lines else "No allowed keys"
 
     async def _send_command_to_controller(self, command: dict):
-        """Send command to controller via WebSocket server."""
-        ws_server = self.data.get("ws_server")
-        if not ws_server:
+        """Send command to controller via WebSocket handler."""
+        ws_handler = self.data.get("ws_handler")
+        if not ws_handler:
             _LOGGER.warning(
-                "WebSocket server not available, command not sent: %s",
+                "WebSocket handler not available, command not sent: %s",
                 command.get("operation"),
             )
             return False
 
         try:
-            result = await ws_server.send_command(command)
+            result = await ws_handler.send_command(command)
             if result:
                 _LOGGER.warning(
                     "Sent %s to controller", command.get("operation")
@@ -324,6 +312,10 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             await self.data["keys_store"].async_save({"keys": self.data["keys"]})
 
         _LOGGER.warning("Key %s (%s) added to allowed keys", key_number, name)
+
+        ws_handler = self.data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
 
         if key_type == "master":
             _LOGGER.warning(
@@ -375,6 +367,10 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             await self.data["keys_store"].async_save({"keys": new_keys})
 
         _LOGGER.warning("Key %s removed from allowed keys", key_number)
+
+        ws_handler = self.data.get("ws_handler")
+        if ws_handler:
+            ws_handler.increment_keys_version()
 
         if key_type == "master":
             _LOGGER.warning(

@@ -1,0 +1,47 @@
+name: Version Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  check-version:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Check manifest.json version matches CHANGELOG.md
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          import sys
+
+          with open("custom_components/ironlogic/manifest.json") as f:
+              manifest = json.load(f)
+
+          version = manifest.get("version", "MISSING")
+          print(f"manifest.json version: {version}")
+
+          if version == "MISSING":
+              print("::error::Version field missing in manifest.json")
+              sys.exit(1)
+
+          with open("CHANGELOG.md") as f:
+              changelog = f.read()
+
+          pattern = rf"^## \[{re.escape(version)}\].*$"
+          if not re.search(pattern, changelog, re.MULTILINE):
+              print(f"::error::CHANGELOG.md has no section for version {version}")
+              sys.exit(1)
+
+          print(f"✓ manifest.json and CHANGELOG.md match: {version}")
+          PY
