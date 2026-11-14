@@ -126,9 +126,8 @@ class IronLogicOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="allowed_keys",
             data_schema=vol.Schema(
                 {
-                    vol.Required("action", default="list"): vol.In(
+                    vol.Required("action", default="add"): vol.In(
                         {
-                            "list": "Show current allowed keys",
                             "add": "Add key",
                             "remove": "Remove key",
                         }
